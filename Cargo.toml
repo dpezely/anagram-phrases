@@ -1,0 +1,30 @@
+[package]
+name = "anagram-phrases"
+version = "0.1.0"
+description = "Phrase-based anagram solver using prime number factorization"
+keywords = ["anagram", "primes"]
+repository = "https://github.com/dpezely/anagram-phrases"
+authors = ["Daniel Pezely <first name at last name dot com>"]
+readme = "README.md"
+edition = "2018"
+
+[features]
+
+default = []
+
+# For mapping from various language scripts to contiguous sequence,
+# such as our list of of PRIMES:
+#external-hasher = ["char-seq"]
+
+# Disabling u128 integers matters only when running some tests; then it uses u64
+disable-u128 = []
+
+[dependencies]
+clap = "2.33"
+#char-seq = {version="0.1", git="https://github.com/dpezely/char-seq", branch="initial-version", features=["UTF-8"], optional=true}
+#char-seq = {version="0.1", path="../char-seq", features=["UTF-8"], optional=true}
+failure = "0.1"
+lazy_static = "1.3"
+num-bigint = "0.2"
+num-traits = "0.2"
+structopt = "0.2"
