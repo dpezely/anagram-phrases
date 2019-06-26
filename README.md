@@ -3,6 +3,9 @@ Anagram Phrase Solver Using Primes
 
 Phrase-based anagram solver using mathematical Prime number factorization:
 
+This accommodates both single word and multiple word anagrams as input, and
+both single word and multiple word phrases get generated as output.
+
 Primes facilitate both pruning the possible search space and using the
 product of primes as computed keys for look-up tables.
 (See [Background](#background) section for details.)
@@ -28,17 +31,17 @@ available for BSD Unix, Linux, macOS, Windows and other operating systems:
 
 Install its one executable somewhere convenient:
 
-    sudo cp target/release/anagrams /usr/local/bin/
+    sudo cp target/release/anagram-phrases /usr/local/bin/
 
 Usage on Debian/Ubuntu and similar flavours of Linux:
 
-    anagrams --help
+    anagram-phrases --help
 
-    anagrams "word or phrase"
+    anagram-phrases "word or phrase"
 
 When using a dictionary word list other than `/usr/share/dict/words`:
 
-    anagrams "word or phrase" -d /usr/share/dict/canadian-english-huge
+    anagram-phrases "word or phrase" -d /usr/share/dict/canadian-english-huge
 
 Multiple `-d file-path` options are allowed, and each file will be loaded in
 sequence specified.
@@ -48,7 +51,7 @@ accommodates it, such as Bash.
 
 A dictionary word list is **required but not supplied**!
 
-Ones compatible with GNU `aspell` or `ispell` or similar should work without
+Ones compatible with `ispell` or GNU `aspell` or similar should work without
 modification.  On Debian/Ubuntu based Linux systems, look in
 `/etc/dictionaries-common/` for where the symbolic link of `words` points,
 which is likely `/usr/share/dict/`.  On macOS and FreeBSD, see
@@ -75,10 +78,11 @@ By convention, we use primes in sequence: A=2, B=3, C=5, to Z=101 for Latin
 scripts such as used by English, but those mappings are arbitrary and
 required only to be unique.
 
-Create a subset of a dictionary word list by filtering for:
+For each run, the program creates a subset of the dictionary word list by
+filtering for:
 
 1. Any single word longer than the total number of alphabetic characters may
-   be rejected.  (Test number of characters, not bytes.)
+   be rejected.  (Tests number of characters, not bytes.)
 2. Any word containing a character other than ones within the input phrase
    may be rejected.
 3. Any word where its product is greater than the product of the input
@@ -96,12 +100,12 @@ different criteria and behaviour would be used for a persistent web
 service.)
 
 For each word remaining within the search space, map each word's list of
-characters to primes (may contain repeated characters and thus duplicate
-primes for larger product).
+characters to primes. (It may contain repeated characters and thus duplicate
+primes, which make for a larger product.)
 
-Because this number can potentially exceed `u128`, this implementation uses
-[num-bigint](https://crates.io/crates/num-bigint), written by The Rust
-Project Developers.
+Because this number can potentially exceed `u64` or `u128` type, this
+implementation uses [num-bigint](https://crates.io/crates/num-bigint),
+written by The Rust Project Developers.
 
 Store the product of all those primes as the key within a hash-table, B-Tree
 or similar structure.  This implementation uses
@@ -114,12 +118,23 @@ phrase.
 
 Even though the final step is technically a brute-force approach, the search
 space will have been aggressively pruned from typically 100 thousand to 300
-thousand words to one tenth of the original number while loading the
+thousand words to one tenth of that original number while loading the
 dictionary.
 
+
+> Therefore, time complexity of `O(N*M*logN)` becomes reasonable due to the
+> pruned search space, N and phrase length, M.  This has been the case when
+> N begins above 300k but reduced within N=30 to N=4000 for M=2 and M=4 word
+> English phrases.
+> 
+> Running time for those have been well under one minute on a single core of
+> i7-8550U CPU with laptop-grade SSD storage.
+
+
 In addition, this implementation leverages many opportunities for local
-optimizations when searching to spare a loop iteration and short-circuiting
-based upon commutative properties of multiplication.
+optimizations when searching.  One optimization spares an occasional loop
+iteration and short-circuits based upon commutative properties of
+multiplication.
 
 Duplicates will appear within preliminary results, having different order of
 the same words, so there's room for future improvement.
@@ -131,7 +146,7 @@ numbers from a larger product and basics of generating combinations.  For
 instance, due to communicative properties of multiplication, only
 *combinations* need be considered, and *permutations* may be ignored.)
 
-Also note that each word's product gets computed from the *list* of it
+Also note that each word's product gets computed from the *list* of its
 primes rather than a set because duplicate characters must be tracked.
 
 
@@ -277,6 +292,6 @@ Its product requires 87 bits:
 The product computed above requires storage larger than `u64`, and Rust
 v1.26 added `u128` type.
 
-Accommodating for much longer words and much larger products than this, a
+Accommodating much longer words and much larger products than this, a
 "big num" library is used.
 (See [Background](#background) section for details.)
