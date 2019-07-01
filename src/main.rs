@@ -212,7 +212,8 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
     let empty: Vec<&str> = vec![];
     let short_words = SHORT.get(&session.lang).unwrap_or(&empty);
     let upcase_words = UPCASE.get(&session.lang).unwrap_or(&empty);
-    let f = File::open(filepath)?;
+    let f = File::open(filepath)
+        .map_err(|e| {println!("Unable to open: {}", filepath); e})?;
     let mut f = BufReader::new(f);
     let mut bytes: Vec<u8> = vec![];
     let mut word = String::new();

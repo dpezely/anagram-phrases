@@ -62,6 +62,44 @@ white-space as well as non-alphabetic characters.  The definition of
 *alphabetic* characters used here comes from the Unicode implementation
 within the Rust standard library.
 
+## Building & Running Using Docker
+
+To avoid any contamination of your laptop/workstation's host OS, build and
+optionally run using Docker containers.
+
+On Debian/Ubuntu, install using:
+
+    sudo apt-get install docker.io
+    
+Or [install](https://download.docker.com/mac/stable/Docker.dmg) for [macOS](https://docs.docker.com/docker-for-mac/docker-toolbox/); 
+[install](https://docs.docker.com/docker-for-windows/install/) for Windows.
+
+Build: (may require prefixing with `sudo`)
+
+	docker build -f build+run.Dockerfile -t anagrams .
+
+Run:
+
+	docker run -it --rm -v /usr/share/dict:/usr/share/dict anagrams
+
+The `-v` flag above specifies mapping a "volume" for sharing (read-only)
+your host's dictionary word list files within the container.  The first
+component of that argument corresponds to your host OS's file system and may
+be different.
+
+Inside that shell, run:
+
+	anagram-phrases --help
+
+    anagram-phrases --lang=en -d /usr/share/dict/british-english-huge torchwood
+
+Currently, the main caveat is that the `-d` flag should always be specified
+to include the dictionary word list, as no default file will be available on
+some systems.
+
+See also:
+[Dockerfile reference](https://docs.docker.com/engine/reference/builder/).
+
 ## Background
 
 The basic principle builds upon prime numbers as exclusive factors of a
