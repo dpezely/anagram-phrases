@@ -82,3 +82,4 @@ clean:
 .PHONY: dist-clean
 dist-clean: clean
 	find . -name '*~' -delete
+	rm -f Cargo.lock

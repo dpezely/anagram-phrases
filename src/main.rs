@@ -32,6 +32,7 @@ use crate::languages::{Available, SHORT, UPCASE};
 use crate::primes::Map;
 
 #[derive(StructOpt, Debug)]
+#[structopt(max_term_width=80)]
 struct Options {
     /// Specify 2 letter ISO code for natural language such as EN for
     /// English, FR for Français, etc. to enable specific filters.
@@ -74,7 +75,7 @@ struct Options {
     #[structopt(short="v", long="verbose")]
     verbose: bool,
 
-    /// Currently, only ASCII and ISO-8859-* are supported.
+    /// Currently, only ASCII and ISO-8859-1 are supported.
     /// May be a single word or phrase consisting of multiple words.
     /// For a phrase, be sure to use quotes or escape spaces.
     #[structopt(name="PHRASE")]
@@ -124,11 +125,11 @@ impl<'a> Session<'a> {
         if max_phrase_words == 0 {
             let n = input_string.trim()
                 .chars()
-                .fold(0, |acc,ch| acc + (!ch.is_whitespace()) as usize);
-            max_phrase_words = n + 1;
-            if max_phrase_words < 3 {
-                max_phrase_words = 3;
-            }
+                .fold(0, |acc,ch| acc + ch.is_whitespace() as usize);
+            max_phrase_words = n;
+        }
+        if max_phrase_words < 2 {
+            max_phrase_words = 2;
         }
         let input_phrase: Vec<&str> = options.input_string.split(" ").collect();
         let pattern = primes::extract_unique_chars(&options.input_string);
@@ -153,26 +154,27 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
         println!("primes-product: {} ({} bits)",
                  &session.primes_product, session.primes_product.bits());
     }
-
     let mut map: Map = BTreeMap::new();
     let mut wordlist: Vec<String> = vec![];
     for file_path in &session.dict_file_path {
         load_wordlist(&mut wordlist, &mut map, &file_path, &session)?;
     }
-    if session.verbose {
-        println!("\nCandidate single words:\n");
+    if !wordlist.is_empty() {
+        if session.verbose {
+            println!("\nCandidate single words:\n");
+        }
+        println!("{:?}", wordlist);
     }
-    println!("{:?}", wordlist);
     if session.max_phrase_words == 0 || session.max_phrase_words > 1 {
         if session.verbose {
             println!("\nCandidate phrases:\n");
         }
         let results = search::brute_force(&session.primes_product, &map,
                                           session.max_phrase_words);
+        let results = results.0; // unpack tuple struct, Candidate
         if session.verbose {
             println!("Results={}", results.len());
         }
-        // FIXME: de-duplicate results: [["a"],["b"]] vs [["b"],["a"]]
         for terms in &results {
             if terms.len() == 2 {
                 println!("{:?}", terms);
@@ -263,8 +265,10 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
             }
         }
     }
-    println!("Dictionary word list: lines={}, filtered-entries={}",
-             i, map.len());
+    if session.verbose {
+        println!("Dictionary word list: lines={}, filtered-entries={}",
+                 i, map.len());
+    }
     Ok(())
 }
 
