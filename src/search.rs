@@ -23,7 +23,7 @@ struct Search<'a> {
     dictionary: &'a Map,               // keys (sorted) go in descending_keys
     limit: usize,                      // keys.len()
     descending_keys: Vec<&'a BigUint>, // high-to-low enforced by Constructor
-    dedup: Dedup,
+    dedup: BTreeMap<String, bool>,
     accumulator: Vec<&'a Vec<String>>,
     results: Candidate<'a>,
 }
@@ -49,7 +49,7 @@ impl<'a,'b> Search<'a> {
         keys.sort_by(|a, b| b.cmp(a));
         assert!(keys[0] > keys[keys.len()-1]);
         Search{dictionary: &map, limit: keys.len(), descending_keys: keys,
-               dedup: Dedup::new(), accumulator: vec![],
+               dedup: BTreeMap::new(), accumulator: vec![],
                results: Candidate(vec![])}
     }
 
@@ -85,9 +85,7 @@ impl<'a,'b> Search<'a> {
                 // Exact match -- Execution only reaches here via recursion
                 self.accumulator.push(&words);
                 // Success: only one key in `dictionary` could match `product`
-                if let Some(unique) = self.dedup.unique(&mut self.accumulator) {
-                    self.results.0.push(unique);
-                }
+                self.push_if_unique();
                 return
             } else if product > test_product && product % test_product == zero {
                 // Found a factor that fits chain within accumulator.
@@ -96,9 +94,7 @@ impl<'a,'b> Search<'a> {
                 if let Some(more_words) = self.dictionary.get(&remainder) {
                     self.accumulator.push(words);
                     self.accumulator.push(more_words);
-                    if let Some(unique) = self.dedup.unique(&mut self.accumulator) {
-                        self.results.0.push(unique);
-                    }
+                    self.push_if_unique();
                     if start > 0 { // Execution reached here via recursion
                         return
                     }
@@ -115,43 +111,27 @@ impl<'a,'b> Search<'a> {
         }
         self.accumulator.clear();
     }
-}
 
-/// Deduplicate candidate anagram results by sorting words within a
-/// phrase and storing the sorted phrase within an instance of this
-/// tree.
-struct Dedup(BTreeMap<String, bool>);
-
-/// This is an integral part of `Search::factor()`.
-// If that logic changes, this should likely change too.
-impl Dedup {
-    /// Constructor
-    fn new() -> Self {
-        Dedup(BTreeMap::new())
-    }
-
-    /// Let there be one instance of a phrase, regardless of word order.
-    /// Param `phrase` is Vector of Vector of String.
-    /// SIDE-EFFECTS: consumes `phrase` completely, leaving it empty
-    /// upon return to calling scope, but a phrase with equivalent set
-    /// of words may be returned within the Option.
-    fn unique<'a,'b>(&mut self, phrase: &'b mut Vec<&'a Vec<String>>) ->
-        Option<Vec<&'a Vec<String>>>
-    {
+    /// Deduplicate candidate anagram results by sorting words within a
+    /// phrase and storing the sorted phrase within an instance of this
+    /// tree.
+    /// Let there be one instance of a phrase within results,
+    /// regardless of word order.
+    /// SIDE-EFFECTS: consumes `self.accumulator` completely, and
+    /// possibly updates `self.results`.
+    fn push_if_unique(&mut self) {
         // Arrange (first) words within phrase in alphabetical order:
-        phrase.sort_unstable_by(|a,b| a[0].cmp(&b[0]));
-        let string: String = phrase.iter()
+        self.accumulator.sort_unstable_by(|a,b| a[0].cmp(&b[0]));
+        let string: String = self.accumulator.iter()
             .map(|&x| x[0].as_str())
             .collect::<Vec<&str>>()
             .join("");
         // Specifically avoiding the Entry API:
-        if self.0.contains_key(&string) {
-            phrase.clear();
-            None
+        if self.dedup.contains_key(&string) {
+            self.accumulator.clear();
         } else {
-            //self.0.insert(string, true);
-            self.0.insert(string, true);
-            Some(phrase.drain(..).collect())
+            self.dedup.insert(string, true);
+            self.results.0.push(self.accumulator.drain(..).collect());
         }
     }
 }

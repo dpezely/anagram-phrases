@@ -4,7 +4,7 @@ Change Log
 ## v0.2.0 - De-duplication Within Results
 
 - De-duplicates results with slight performance degradation;
-  see `search::Dedup` for details.
+  see `search::Search::push_if_unique()` for details.
 - Fixes a minor programming error (bug) by deferring inclusion of candidate
   words into phrase word list accumulator until *after* confirming that the
   follow-on step also extends the accumulator, so now results beyond initial
