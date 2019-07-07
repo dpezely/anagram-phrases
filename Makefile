@@ -42,8 +42,11 @@ dot-bashrc:
 build:
 	cargo build --bin anagram-phrases
 
+# Using the help flag as a test in itself confirms the Clap config is valid
 .PHONY: test
 test:
+	@echo "Running with --help to confirm clap config:"
+	cargo run --bin anagram-phrases -- --help
 	cargo test
 
 .PHONY: audit
@@ -52,6 +55,7 @@ audit:
 
 .PHONY: release
 release:
+	cargo clean --release -p $(shell cargo pkgid)
 	cargo build --release --bin anagram-phrases
 
 # Build release for production using Docker with a Linux base image.

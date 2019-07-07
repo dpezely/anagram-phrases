@@ -1,17 +1,11 @@
 //! Command-line interface for solving anagrams and allows multiple
 //! words for input and results.
 
-extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-extern crate num_bigint;
-extern crate num_traits;
-extern crate structopt;
-
 #[cfg(feature="external-hasher")]
 extern crate char_seq;
 
-use num_bigint::BigUint;
+extern crate anagram_phrases;
+
 use std::collections::BTreeMap;
 use std::convert::From;
 use std::fs::File;
@@ -20,47 +14,42 @@ use std::io::BufReader;
 use std::result::Result;
 use structopt::StructOpt;
 
-mod error;
-mod languages;
-mod primes;
-mod search;
-#[cfg(test)]
-mod test_primes;
-
-use crate::error::ErrorKind;
-use crate::languages::{Available, SHORT, UPCASE};
-use crate::primes::Map;
+use anagram_phrases::error::ErrorKind;
+use anagram_phrases::languages::{self, Language, SHORT, UPCASE};
+use anagram_phrases::primes::{self, Map};
+use anagram_phrases::search;
+use anagram_phrases::session::Session;
 
 #[derive(StructOpt, Debug)]
 #[structopt(max_term_width=80)]
 struct Options {
     /// Specify 2 letter ISO code for natural language such as EN for
     /// English, FR for Français, etc. to enable specific filters.
-    #[structopt(short="l", long="lang", required=false, default_value="any",
-                raw(possible_values="&Available::variants()",
+    #[structopt(short="l", long="lang", required=false, default_value="Any",
+                raw(possible_values="&Language::variants()",
                     case_insensitive="true"))]
-    lang: Available,
+    lang: Language,
 
     /// Must be a plain-text file containing one word per line.
     /// Files suitable for `ispell` or GNU `aspell` are compatible.
     #[structopt(short="d", long="dict", multiple=true, number_of_values=1,
                 default_value="/usr/share/dict/words")]
-    dict_file_path: Vec<String>,
+    dict_file_paths: Vec<String>,
 
-    /// Defaults to one more than number words of input phrase
-    /// with a minimum of 3.
+    /// Defaults to one more than number of words within input phrase
+    /// and a minimum of 3 words.
     #[structopt(short="m", long="max", default_value="0")]
     max_phrase_words: usize,
 
     /// Skip dictionary words containing uppercase, which indicates
     /// being a proper names.  However, use --lang=EN to allow "I" as
-    /// an exception for English; --lang=ES allows "y" for Spanish; etc.
+    /// an exception for English; etc.
     #[structopt(short="u", long="upcase")]
     skip_upcase: bool,
 
     /// Skip dictionary words containing single letters, which may
     /// help avoid noisy results.  However, use --lang=en allowing
-    /// only `a` and `I` for English, `y` for Spanish, etc.
+    /// only `a` for English, `y` for Spanish, etc.
     #[structopt(short="s", long="short")]
     skip_short: bool,
 
@@ -75,73 +64,23 @@ struct Options {
     #[structopt(short="v", long="verbose")]
     verbose: bool,
 
-    /// Currently, only ASCII and ISO-8859-1 are supported.
+    /// Currently, only ASCII and ISO-8859-* are supported.
     /// May be a single word or phrase consisting of multiple words.
     /// For a phrase, be sure to use quotes or escape spaces.
     #[structopt(name="PHRASE")]
     input_string: String,
 }
 
-/// First few fields are identical to those of `Options`.
-struct Session<'a> {
-    // Same as from `Options` struct:
-    lang: Available,
-    dict_file_path: Vec<String>,
-    max_phrase_words: usize,
-    skip_upcase: bool,
-    skip_short: bool,
-    iso_8859_1: bool,
-    verbose: bool,
-    input_string: String,
-
-    // Computed values:
-    input_phrase: Vec<&'a str>,
-    pattern: String,
-    essential: String,
-    primes: Vec<u16>,
-    primes_product: BigUint,
-}
-
 /// Resolve a single anagram phrase or word from command-line parameters.
 fn main() -> Result<(), ErrorKind> {
     let opts = Options::from_args();
-    let session = Session::start(&opts)?;
+    let Options{lang, dict_file_paths, iso_8859_1, max_phrase_words,
+                skip_upcase, skip_short, verbose, input_string} = opts;
+    let session =
+        Session::start(&lang, dict_file_paths, iso_8859_1, max_phrase_words,
+                       skip_upcase, skip_short, verbose, &input_string)?;
     resolve_single(&session)?;
     Ok(())
-}
-
-impl<'a> Session<'a> {
-    /// Creates new `Session` instance, without modifying `options`.
-    /// Ostensibly, this is a a constructor but returning `Result`
-    /// around `Session`.
-    fn start(options: &Options) -> Result<Session, ErrorKind> {
-        let Options{lang, dict_file_path, iso_8859_1, max_phrase_words,
-                    skip_upcase, skip_short, verbose, input_string} = options;
-        let mut dict_file_path = dict_file_path.clone();
-        let mut max_phrase_words = *max_phrase_words;
-        if dict_file_path.is_empty() {
-            dict_file_path.push("/usr/share/dict/words".to_string());
-        }
-        if max_phrase_words == 0 {
-            let n = input_string.trim()
-                .chars()
-                .fold(0, |acc,ch| acc + ch.is_whitespace() as usize);
-            max_phrase_words = n;
-        }
-        if max_phrase_words < 2 {
-            max_phrase_words = 2;
-        }
-        let input_phrase: Vec<&str> = options.input_string.split(" ").collect();
-        let pattern = primes::extract_unique_chars(&options.input_string);
-        let essential = primes::essential_chars(&options.input_string);
-        let primes = primes::primes(&essential)?;
-        let primes_product = primes::primes_product(&primes)?;
-        Ok(Session{lang: lang.clone(), dict_file_path, max_phrase_words,
-                   iso_8859_1: *iso_8859_1,
-                   skip_upcase: *skip_upcase, skip_short: *skip_short,
-                   verbose: *verbose, input_string: input_string.clone(),
-                   input_phrase, pattern, essential, primes, primes_product})
-    }
 }
 
 fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
@@ -156,7 +95,7 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
     }
     let mut map: Map = BTreeMap::new();
     let mut wordlist: Vec<String> = vec![];
-    for file_path in &session.dict_file_path {
+    for file_path in &session.dict_file_paths {
         load_wordlist(&mut wordlist, &mut map, &file_path, &session)?;
     }
     if !wordlist.is_empty() {
@@ -180,13 +119,13 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
                 println!("{:?}", terms);
             }
         }
-        println!("");
+        println!();
         for terms in &results {
             if terms.len() == 3 {
                 println!("{:?}", terms);
             }
         }
-        println!("");
+        println!();
         for terms in &results {
             if terms.len() > 3 {
                 println!("{:?}", terms);
@@ -199,10 +138,12 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
 /// Load dictionary of natural language words (e.g., English) for
 /// possible inclusion when searching combinations of words for
 /// constructing candidate anagrams that match the input phrase.
+///
 /// Reject dictionary words based upon various criteria: 1) too long
 /// to possibly match; 2) containing characters other than those from
 /// the input pattern; 3) words where their product is greater than
 /// that of the input phrase.
+///
 /// Params `wordlist` is set of single word matches, and `map` is a
 /// tree containing dictionary words selected after initial filtering.
 /// Other parameters are same as their namesakes from
@@ -214,8 +155,7 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
     let empty: Vec<&str> = vec![];
     let short_words = SHORT.get(&session.lang).unwrap_or(&empty);
     let upcase_words = UPCASE.get(&session.lang).unwrap_or(&empty);
-    let f = File::open(filepath)
-        .map_err(|e| {println!("Unable to open: {}", filepath); e})?;
+    let f = File::open(filepath)?;
     let mut f = BufReader::new(f);
     let mut bytes: Vec<u8> = vec![];
     let mut word = String::new();
@@ -240,27 +180,29 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
                 if word == previous { // some dictionaries contain duplicates
                     continue
                 }
-                if per_lang_filter(&word, &session, &short_words, &upcase_words) {
+                if languages::filter(&word, &short_words, &upcase_words,
+                                    session.skip_short, session.skip_upcase) {
                     continue
                 }
                 if session.input_phrase.iter().any(|&x| x == word) {
                     continue    // filter words from input phrase
                 }
-                previous = word.clone();
                 if let Ok(product) = primes::filter_word(&word, &session.pattern,
                                                          input_length,
                                                          &session.primes_product) {
                     if product == session.primes_product { // single word match
                         wordlist.push(word.to_string());
                     } else { // Store remaining words in look-up table:
+                        // FIXME: utilize PUSH-NEW semantics
                         map.entry(product)
-                            .or_insert(Vec::with_capacity(1))
+                            .or_insert_with(|| Vec::with_capacity(1))
                             .push(word.to_string());
                     }
                 }
+                std::mem::swap(&mut previous, &mut word);
             }
             Err(e) => {
-                println!("file error: {:?}", e);
+                println!("File error: line={} {:?}", i, e);
                 break
             }
         }
@@ -270,38 +212,4 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
                  i, map.len());
     }
     Ok(())
-}
-
-/// Language-specific filtering for words from dictionary.
-/// See `languages::*` for supplying `short_words` and `upcase_words`.
-/// Return value indicates whether to reject dictionary `word` or not.
-#[inline]
-fn per_lang_filter(word: &str, session: &Session,
-                   short_words: &[&str], upcase_words: &[&str]) -> bool {
-    if session.lang == Available::Any {
-        if session.skip_short && word.len() < 2 {
-            true
-        }
-        else if session.skip_upcase && word.find(char::is_uppercase).is_some() {
-            true
-        } else {
-            false
-        }
-    } else {
-        if word.len() == 1 {
-            if short_words.iter().any(|&w| w == word) {
-                false
-            } else {
-                true
-            }
-        } else if word.find(char::is_uppercase).is_some() {
-            if upcase_words.iter().any(|&w| w == word) {
-                false
-            } else {
-                true
-            }
-        } else {
-            false
-        }
-    }
 }

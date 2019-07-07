@@ -1,0 +1,5 @@
+Cargo.lock
+/target
+wordlist*
+**/*.rs.bk
+**/*~

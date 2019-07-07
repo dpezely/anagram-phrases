@@ -72,15 +72,14 @@ pub fn filter_word(word: &str, pattern: &str, input_length: usize,
 }
 
 /// Extract non-duplicate characters in preparation for pattern-matching
+#[allow(clippy::map_entry)]
 pub fn extract_unique_chars(word: &str) -> String {
     let mut pattern = String::with_capacity(word.len());
     let mut map: BTreeMap<char, bool> = BTreeMap::new();
     for ch in word.to_lowercase().chars() {
-        if ch.is_alphabetic() {
-            if !map.contains_key(&ch) {
-                map.insert(ch, true);
-                pattern.push(ch);
-            }
+        if ch.is_alphabetic() && !map.contains_key(&ch) {
+            map.insert(ch, true);
+            pattern.push(ch);
         }
     }
     pattern
@@ -164,5 +163,8 @@ pub fn hash(ch: char) -> Option<usize> {
 #[cfg(feature="external-hasher")]
 #[inline]
 pub fn hash(ch: char) -> Option<usize> {
-    char_seq::hash(ch)
+    // To replace this external dependency with your own, the
+    // Cargo Guide section on Overriding Dependencies might help:
+    //https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#overriding-dependencies
+   char_seq::hash(ch)
 }

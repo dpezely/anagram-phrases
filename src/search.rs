@@ -1,13 +1,9 @@
 use num_bigint::BigUint;
 use num_traits::Zero;
+use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::primes::Map;
-
-/// Candidate phrases that are anagrams for the input phrase.
-/// These are candidates requiring further evaluation such as by a
-/// human to select or perhaps be verified by an MD5 checksum, etc.
-pub struct Candidate<'a>(pub Vec<Vec<&'a Vec<String>>>);
 
 /// Associate a product of primes with its word list from the
 /// dictionary file loaded at program start.
@@ -23,10 +19,17 @@ struct Search<'a> {
     dictionary: &'a Map,               // keys (sorted) go in descending_keys
     limit: usize,                      // keys.len()
     descending_keys: Vec<&'a BigUint>, // high-to-low enforced by Constructor
-    dedup: BTreeMap<String, bool>,
-    accumulator: Vec<&'a Vec<String>>,
-    results: Candidate<'a>,
+    accumulator: Vec<&'a Vec<String>>, // candidate words in incomplete phrase
+    dedup: BTreeMap<String, bool>,     // ensure unique phrase when complete
+    results: Candidate<'a>,            // final set of unique phrases
 }
+
+/// Candidate phrases that are anagrams for the input phrase.
+/// These are candidates requiring further evaluation such as by a
+/// human to select or perhaps be verified by an MD5 checksum, etc.
+#[derive(Serialize, Debug)]
+#[serde(transparent)]
+pub struct Candidate<'a>(pub Vec<Vec<&'a Vec<String>>>);
 
 /// Iterate through list of remaining words within `map`, given that
 /// dictionary words within it have been selected as viable partial
@@ -49,13 +52,13 @@ impl<'a,'b> Search<'a> {
         keys.sort_by(|a, b| b.cmp(a));
         assert!(keys[0] > keys[keys.len()-1]);
         Search{dictionary: &map, limit: keys.len(), descending_keys: keys,
-               dedup: BTreeMap::new(), accumulator: vec![],
+               accumulator: vec![], dedup: BTreeMap::new(), 
                results: Candidate(vec![])}
     }
 
     /// Find words in dictionary based upon prime number factorization.
     /// This is recursive with few iterations, albeit long iterations.
-    /// Params `product` is primes product of input phrase, `map` is
+    /// Params: `product` is primes product of input phrase, `map` is
     /// filtered dictionary word list, `keys` are from map while
     /// pre-sorted large to small, and `recursion_depth` is maximum number
     /// of words to be allowed in candidate result phrase.
@@ -112,13 +115,14 @@ impl<'a,'b> Search<'a> {
         self.accumulator.clear();
     }
 
-    /// Deduplicate candidate anagram results by sorting words within a
-    /// phrase and storing the sorted phrase within an instance of this
-    /// tree.
+    /// De-duplicate candidate anagram results by sorting words within
+    /// a phrase and storing the sorted phrase within an instance of
+    /// this tree.
     /// Let there be one instance of a phrase within results,
     /// regardless of word order.
     /// SIDE-EFFECTS: consumes `self.accumulator` completely, and
     /// possibly updates `self.results`.
+    #[allow(clippy::map_entry)]
     fn push_if_unique(&mut self) {
         // Arrange (first) words within phrase in alphabetical order:
         self.accumulator.sort_unstable_by(|a,b| a[0].cmp(&b[0]));

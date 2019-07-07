@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+## v0.3.0 - Library
+
+- Accommodates being used as library/API such as for web service,
+  [anagram-phrases-httpd](https://gitlab.com/dpezely/anagram-phrases-httpd),
+  by same author.
+- Adds some function tests but could benefit by more bracketing, more tests.
+- Removes and ignores Cargo.lock from Git repo, because this is a library now.
+- Creating command-line interface executable now requires an explicit flag:  
+  `cargo build --release --bin anagram-phrases`
+
 ## v0.2.0 - De-duplication Within Results
 
 - De-duplicates results with slight performance degradation;
@@ -25,6 +35,6 @@ Change Log
   https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
 - Initial support for LANG specific filters, but only English is reliable
   thus far.
-- Contains mimimal function tests.
+- Contains minimal function tests.
 - Contains Dockerfile and Makefile for build-only production releases.
 - Create command-line interface executable: `cargo build --release`

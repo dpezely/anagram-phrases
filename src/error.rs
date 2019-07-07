@@ -1,7 +1,6 @@
 use failure::Fail;
 use std::convert::From;
 
-
 #[derive(Debug, Fail, PartialEq)]
 #[must_use]
 pub enum ErrorKind {
@@ -16,6 +15,9 @@ pub enum ErrorKind {
 
     #[fail(display="Prime number is larger than Big Num library can accommodate")]
     PrimeTooBig,
+    
+    #[fail(display="Failed while attempting to export results")]
+    SerializationError,
     
     #[fail(display="Unknown IO error")]
     UnknownIoError,

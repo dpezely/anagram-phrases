@@ -2,6 +2,9 @@ Anagram Phrase Solver Using Primes
 ==================================
 
 Phrase-based anagram solver using mathematical Prime number factorization:
+may be used as a library or command-line utility.  See example web service
+API built upon this library by same author:
+[anagram-phrases-httpd](https://gitlab.com/dpezely/anagram-phrases-httpd).
 
 This accommodates both single word and multiple word anagrams as input, and
 both single word and multiple word phrases get generated as output.
@@ -22,6 +25,8 @@ interchangeably.
 
 ## Basic Usage
 
+**This has only be tested on Linux**
+
 This is a command-line utility for handling a single query per run.
 
 Compile using [Rust](http://rust-lang.org/) Edition 2018 or newer, which is
@@ -38,6 +43,11 @@ Usage on Debian/Ubuntu and similar flavours of Linux:
     anagram-phrases --help
 
     anagram-phrases "word or phrase"
+
+Words from your query get excluded from results, but to keep them as
+possible words, simply eliminate spaces within the original phrase:
+
+    anagram-phrases wordorphrase
 
 When using a dictionary word list other than `/usr/share/dict/words`:
 
@@ -57,10 +67,10 @@ modification.  On Debian/Ubuntu based Linux systems, look in
 which is likely `/usr/share/dict/`.  On macOS and FreeBSD, see
 `/usr/share/dict/words` and other files within that subdirectory.
 
-Both the input phrase and dictionary word list ignore leading and trailing
-white-space as well as non-alphabetic characters.  The definition of
-*alphabetic* characters used here comes from the Unicode implementation
-within the Rust standard library.
+Processing of both the input phrase and dictionary word list ignores leading
+and trailing white-space as well as non-alphabetic characters.  The
+definition of *alphabetic* characters used here comes from the Unicode
+implementation within the Rust standard library.
 
 ## Building & Running Using Docker
 
@@ -100,6 +110,21 @@ some systems.
 See also:
 [Dockerfile reference](https://docs.docker.com/engine/reference/builder/).
 
+## Developing
+
+If expanding upon this code, it may be helpful to first apply a
+[patch](./debug-search-rs.diff).
+
+This patch adds extremely verbose logging.
+(i.e., *who wants to drink from the fire hose?*)
+
+It may be applied from the shell by running:
+
+    patch -p1 < debug-search-rs.diff
+    
+The `patch` command is generally available on BSD Unix, Linux, macOS and
+Cygwin for Windows.
+
 ## Background
 
 The basic principle builds upon prime numbers as exclusive factors of a
@@ -120,7 +145,9 @@ For each run, the program creates a subset of the dictionary word list by
 filtering for:
 
 1. Any single word longer than the total number of alphabetic characters may
-   be rejected.  (Tests number of characters, not bytes.)
+   be rejected.  (This tests number of characters-- not bytes-- because an
+   accented letter may resolve to its unaccented equivalent and therefore
+   may have different byte counts.)
 2. Any word containing a character other than ones within the input phrase
    may be rejected.
 3. Any word where its product is greater than the product of the input
@@ -128,6 +155,9 @@ filtering for:
 4. Any single word where its product exactly matches that of the input
    phrase may be collected as a candidate within results and then excluded
    from the search space, having already been consumed.
+5. Per-language filters may be optionally applied to eliminate words
+   beginning with capital letters or all single letter words, except "I" and
+   "a" in English, "y" in Spanish, etc.
 
 With that simple filtering, the search space becomes greatly reduced.
 
@@ -151,7 +181,7 @@ or similar structure.  This implementation uses
 
 
 These keys in turn accommodate quickly searching for words to be combined
-when constructing candidate anagram phrases equivalent to input word or
+when constructing candidate anagram phrases equivalent to the input word or
 phrase.
 
 Even though the final step is technically a brute-force approach, the search
@@ -161,12 +191,13 @@ dictionary.
 
 
 > Therefore, time complexity of `O(N*M*logN)` becomes reasonable due to the
-> pruned search space, N and phrase length, M.  This has been the case when
-> N begins above 300k but reduced within N=30 to N=4000 for M=2 and M=4 word
-> English phrases.
+> pruned search space (`N`) and phrase length (`M`).  This has been the case
+> when N begins above 300k but reduced within N=30 to N=4000 for M=2 and M=4
+> word English phrases.
 > 
-> Running time for those have been well under one minute on a single core of
-> i7-8550U CPU with laptop-grade SSD storage.
+> Running time for those have been well *under one second* on a single core
+> of i7-8550U CPU with laptop-grade SSD storage for a 25 character, 4 word
+> input phrase.  Be sure to build with `--release` flag, first.
 
 
 In addition, this implementation leverages many opportunities for local
@@ -174,15 +205,9 @@ optimizations when searching.  One optimization spares an occasional loop
 iteration and short-circuits based upon commutative properties of
 multiplication.
 
-Duplicates will appear within preliminary results, having different order of
-the same words, so there's room for future improvement.
-
-(This duplicated computation gives an acceptable trade-off for relative
-simplicity of the source code-- simple for someone experienced with the Rust
-programming language, simple mathematical properties about factoring prime
-numbers from a larger product and basics of generating combinations.  For
-instance, due to communicative properties of multiplication, only
-*combinations* need be considered, and *permutations* may be ignored.)
+Duplicates get removed from preliminary result with small performance
+penalty of another ephemeral BTreeMap, where each keys are words of a
+matching phrase sorted and concatenated.
 
 Also note that each word's product gets computed from the *list* of its
 primes rather than a set because duplicate characters must be tracked.

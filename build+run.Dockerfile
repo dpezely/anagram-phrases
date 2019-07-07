@@ -2,13 +2,13 @@
 # that uses dictionary word lists from host computer.
 
 # Usage on local laptop/workstation:
-# docker build -f build+run.Dockerfile -t anagrams .
-# docker run -it --rm -v /usr/share/dict:/usr/share/dict anagrams
-# Inside that shell, run: anagrams --help
+# docker build -f build+run.Dockerfile -t anagram-phrases .
+# docker run -it --rm -v /usr/share/dict:/usr/share/dict anagram-phrases
+# Inside that shell, run: anagram-phrases --help
 
 # We need to use the Rust build image, because
 # we need the Rust compile and Cargo tooling
-FROM rust:1.35 as build_step
+FROM rust:1.36 as build_step
 
 # Create dummy project used only for dependencies
 RUN USER=root cargo new --bin anagram-phrases
