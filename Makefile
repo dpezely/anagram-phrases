@@ -55,7 +55,7 @@ audit:
 
 .PHONY: release
 release:
-	cargo clean --release -p $(shell cargo pkgid)
+	[ -f Cargo.lock ] && cargo clean --release -p $(shell cargo pkgid) || true
 	cargo build --release --bin anagram-phrases
 
 # Build release for production using Docker with a Linux base image.
