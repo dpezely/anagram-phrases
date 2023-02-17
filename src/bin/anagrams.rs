@@ -26,8 +26,7 @@ struct Options {
     /// Specify 2 letter ISO code for natural language such as EN for
     /// English, FR for Français, etc. to enable specific filters.
     #[structopt(short="l", long="lang", required=false, default_value="Any",
-                raw(possible_values="&Language::variants()",
-                    case_insensitive="true"))]
+                possible_values=&Language::variants(), case_insensitive=true)]
     lang: Language,
 
     /// Must be a plain-text file containing one word per line.
@@ -55,9 +54,8 @@ struct Options {
 
     /// Load dictionaries as ISO-8859-1 rather than UTF-8 encoding
     // FIXME: also convert from Latin-2, etc.
-    #[structopt(short="1", long="iso-8859-1",
-                raw(aliases = r#"&["alias"]"#,
-                    possible_values = r#"&["latin-1", "latin1"]"#))]
+    #[structopt(short="1", long="iso-8859-1", aliases=&["alias"],
+                possible_values=&["latin-1","latin1"])]
     iso_8859_1: bool,
 
     /// Display additional status information
