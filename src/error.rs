@@ -1,34 +1,34 @@
-use failure::Fail;
+use thiserror::Error;
 use std::convert::From;
 
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 #[must_use]
 pub enum ErrorKind {
-    #[fail(display="Character is outside of expected character set range")]
+    #[error("Character is outside of expected character set range")]
     CharOutOfBounds,
 
-    #[fail(display="Reject words with chars beyond that of input")]
+    #[error("Reject words with chars beyond that of input")]
     MismatchedChars,
-    
-    #[fail(display="File not found")]
+
+    #[error("File not found")]
     NoFilePath,
 
-    #[fail(display="Prime number is larger than Big Num library can accommodate")]
+    #[error("Prime number is larger than Big Num library can accommodate")]
     PrimeTooBig,
-    
-    #[fail(display="Failed while attempting to export results")]
+
+    #[error("Failed while attempting to export results")]
     SerializationError,
-    
-    #[fail(display="Unknown IO error")]
+
+    #[error("Unknown IO error")]
     UnknownIoError,
 
-    #[fail(display="Product of Primes for word not a factor of input")]
+    #[error("Product of Primes for word not a factor of input")]
     WordProductNotFactor,
 
-    #[fail(display="Product of Primes for word is larger than that of input")]
+    #[error("Product of Primes for word is larger than that of input")]
     WordProductTooBig,
 
-    #[fail(display="Reject words longer than input pattern")]
+    #[error("Reject words longer than input pattern")]
     WordTooLong,
 }
 
