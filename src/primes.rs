@@ -53,12 +53,12 @@ const PRIMES: [u16; 200] =
 /// from the input phrase.
 pub fn filter_word(word: &str, pattern: &str, input_length: usize,
                    input_product: &BigUint) -> Result<BigUint, ErrorKind> {
-    let word_chars = essential_chars(&word);
+    let word_chars = essential_chars(word);
     if word_chars.len() > input_length {
         return Err(ErrorKind::WordTooLong)
     }
-    let unique_chars = extract_unique_chars(&word);
-    if !matched_chars(&unique_chars, &pattern) {
+    let unique_chars = extract_unique_chars(word);
+    if !matched_chars(&unique_chars, pattern) {
         return Err(ErrorKind::MismatchedChars)
     }
     let product = primes_product(&primes(&word_chars)?)?;
@@ -146,11 +146,11 @@ pub fn primes_product(primes: &[u16]) -> Result<BigUint, ErrorKind> {
 #[cfg(not(feature="external-hasher"))]
 #[inline]
 pub fn hash(ch: char) -> Option<usize> {
-    if ch >= '\u{0061}' && ch <= '\u{007a}' {
+    if ch.is_ascii_lowercase() {
         // Accommodate all of ISO-8859-1 through -16
         // ASCII a=97,U+61, z=122,U+7A; 26 lowercase characters
         Some(ch as usize - 0x61)
-    } else if ch >= '\u{00A1}' && ch <= '\u{00FF}' { // skip NBSP
+    } else if ('\u{00A1}'..='\u{00FF}').contains(&ch) { // skip NBSP
         // e.g., ISO-8859-1 has à=U+00E0, ÿ=U+00FF for lowercase
         // Not the most compact for iso-8859-1 but maintains
         // integrity for Cyrillic in iso-8859-5

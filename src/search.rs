@@ -38,7 +38,7 @@ pub struct Candidate<'a>(pub Vec<Vec<&'a Vec<String>>>);
 /// match of remaining factor within `map` for a two word result; 2)
 /// test each word's product to see if it's a factor of the remaining
 /// factor within `map` for possible n-word result.
-pub fn brute_force<'a,'b>(primes_product: &'b BigUint, map: &'a Map,
+pub fn brute_force<'a>(primes_product: &BigUint, map: &'a Map,
                           max_phrase_words: usize) -> Candidate<'a> {
     let mut search = Search::new(map);
     search.factors(primes_product, 0, max_phrase_words);
@@ -51,7 +51,7 @@ impl<'a,'b> Search<'a> {
         let mut keys: Vec<&BigUint> = map.keys().collect();
         keys.sort_by(|a, b| b.cmp(a));
         assert!(keys[0] > keys[keys.len()-1]);
-        Search{dictionary: &map, limit: keys.len(), descending_keys: keys,
+        Search{dictionary: map, limit: keys.len(), descending_keys: keys,
                accumulator: vec![], dedup: BTreeMap::new(), 
                results: Candidate(vec![])}
     }
@@ -86,7 +86,7 @@ impl<'a,'b> Search<'a> {
             i += 1;
             if product == test_product {
                 // Exact match -- Execution only reaches here via recursion
-                self.accumulator.push(&words);
+                self.accumulator.push(words);
                 // Success: only one key in `dictionary` could match `product`
                 self.push_if_unique();
                 return

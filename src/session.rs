@@ -32,7 +32,7 @@ impl<'a> Session<'a> {
                  iso_8859_1: bool, max_phrase_words: usize,
                  skip_upcase: bool, skip_short: bool, verbose: bool,
                  input_string: &'a str) -> Result<Session<'a>, ErrorKind> {
-        let mut dict_file_paths = dict_file_paths.clone();
+        let mut dict_file_paths = dict_file_paths;
         let mut max_phrase_words = max_phrase_words;
         if dict_file_paths.is_empty() {
             dict_file_paths.push("/usr/share/dict/words".to_string());
@@ -47,8 +47,8 @@ impl<'a> Session<'a> {
             max_phrase_words = 2;
         }
         let input_phrase: Vec<&'a str> = input_string.split_whitespace().collect();
-        let pattern = primes::extract_unique_chars(&input_string);
-        let essential = primes::essential_chars(&input_string);
+        let pattern = primes::extract_unique_chars(input_string);
+        let essential = primes::essential_chars(input_string);
         let primes = primes::primes(&essential)?;
         let primes_product = primes::primes_product(&primes)?;
         Ok(Session{lang: lang.clone(), dict_file_paths, max_phrase_words,

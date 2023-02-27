@@ -34,8 +34,9 @@ arg_enum! {
 /// further distinguished between UK, US, Canada, etc.  This
 /// corresponds to the second component of LANG environment variable;
 /// e.g., in Bash, `export LANG="en-US"`
-#[derive(Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Clone, Debug, Default, Eq, PartialEq)]
 pub enum Region {
+    #[default]
     Any,
     // Please keep this alphabetized:
     CA,
@@ -44,7 +45,7 @@ pub enum Region {
     US,
 }
 
-lazy_static! {    
+lazy_static! {
     /// Associate what words are acceptable when otherwise bypassing
     /// words containing upper case letters.  e.g., "I" isn't a proper
     /// name in English, so it should be allowed.
@@ -69,12 +70,6 @@ lazy_static! {
         tree.insert(ES, vec!["y"]);
         tree
     };
-}
-
-impl Default for Language {
-    fn default() -> Language {
-        Language::Any
-    }
 }
 
 impl From<&str> for Language {

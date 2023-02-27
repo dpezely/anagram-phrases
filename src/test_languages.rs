@@ -6,23 +6,23 @@ fn filters() {
     assert!(languages::filter("a", &empty, &empty, true, true));
     assert!(languages::filter("I", &empty, &empty, true, true));
     assert!(languages::filter("Foo", &empty, &empty, true, true));
-    assert_eq!(languages::filter("a", &empty, &empty, false, true), false);
-    assert_eq!(languages::filter("a", &empty, &empty, false, false), false);
-    assert_eq!(languages::filter("I", &empty, &empty, false, false), false);
+    assert!(!languages::filter("a", &empty, &empty, false, true));
+    assert!(!languages::filter("a", &empty, &empty, false, false));
+    assert!(!languages::filter("I", &empty, &empty, false, false));
     assert!(languages::filter("I", &empty, &empty, true, false));
 
     // EN == English:
     // Note: for English, "I" is in both lists:
     let short = SHORT.get(&Language::EN).unwrap();
     let upcase = UPCASE.get(&Language::EN).unwrap();
-    assert!(languages::filter("n", &short, &upcase, false, false));
-    assert!(languages::filter("Rust", &short, &upcase, false, false));
-    assert_eq!(languages::filter("a", &short, &upcase, false, false), false);
-    assert_eq!(languages::filter("I", &short, &upcase, false, false), false);
+    assert!(languages::filter("n", short, upcase, false, false));
+    assert!(languages::filter("Rust", short, upcase, false, false));
+    assert!(!languages::filter("a", short, upcase, false, false));
+    assert!(!languages::filter("I", short, upcase, false, false));
 
     // ES == Español, Spanish
     let short = SHORT.get(&Language::ES).unwrap();
-    assert_eq!(languages::filter("y", &short, &upcase, false, false), false);
+    assert!(!languages::filter("y", short, upcase, false, false));
 }
 
 #[test]

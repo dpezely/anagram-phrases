@@ -94,7 +94,7 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
     let mut map: Map = BTreeMap::new();
     let mut wordlist: Vec<String> = vec![];
     for file_path in &session.dict_file_paths {
-        load_wordlist(&mut wordlist, &mut map, &file_path, &session)?;
+        load_wordlist(&mut wordlist, &mut map, file_path, session)?;
     }
     if !wordlist.is_empty() {
         if session.verbose {
@@ -178,7 +178,7 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
                 if word == previous { // some dictionaries contain duplicates
                     continue
                 }
-                if languages::filter(&word, &short_words, &upcase_words,
+                if languages::filter(&word, short_words, upcase_words,
                                     session.skip_short, session.skip_upcase) {
                     continue
                 }
