@@ -2,12 +2,19 @@ Anagram Phrase Solver Using Primes
 ==================================
 
 Phrase-based anagram solver using mathematical Prime number factorization:
-may be used as a library or command-line utility.  See example web service
-API built upon this library by same author:
-[anagram-phrases-httpd](https://gitlab.com/dpezely/anagram-phrases-httpd).
+may be used as a library or command-line utility.
 
-This accommodates both single word and multiple word anagrams as input, and
-both single word and multiple word phrases get generated as output.
+Examples where this package gets used as a library by same author:
+
+- Web service API,
+  [anagram-phrases-httpd](https://gitlab.com/dpezely/anagram-phrases-httpd)
+- Native Android mobile app using Kotlin, compatible back to Android 4.2
+  (API level 17) circa early 2013 devices,
+  [native-android-kotlin-rust](https://gitlab.com/dpezely/native-android-kotlin-rust)
+
+This accommodates both single word and multiple word phrases as input, and
+both single word *transpositions* and multiple word *anagrams* get generated
+as output.
 
 Primes facilitate both pruning the possible search space and using the
 product of primes as computed keys for look-up tables.
@@ -38,7 +45,7 @@ Install its one executable somewhere convenient:
 
     sudo cp target/release/anagram-phrases /usr/local/bin/
 
-Usage on Debian/Ubuntu and similar flavours of Linux:
+Usage on Debian/Ubuntu and similar flavors of Linux:
 
     anagram-phrases --help
 
@@ -80,8 +87,8 @@ optionally run using Docker containers.
 On Debian/Ubuntu, install using:
 
     sudo apt-get install docker.io
-    
-Or [install](https://download.docker.com/mac/stable/Docker.dmg) for [macOS](https://docs.docker.com/docker-for-mac/docker-toolbox/); 
+
+Or [install](https://download.docker.com/mac/stable/Docker.dmg) for [macOS](https://docs.docker.com/docker-for-mac/docker-toolbox/);
 [install](https://docs.docker.com/docker-for-windows/install/) for Windows.
 
 Build: (may require prefixing with `sudo`)
@@ -121,7 +128,7 @@ This patch adds extremely verbose logging.
 It may be applied from the shell by running:
 
     patch -p1 < debug-search-rs.diff
-    
+
 The `patch` command is generally available on BSD Unix, Linux, macOS and
 Cygwin for Windows.
 
@@ -164,7 +171,7 @@ With that simple filtering, the search space becomes greatly reduced.
 
 When loading the dictionary list on-demand, memory requirements become
 reduced accordingly.  (This describes a single-use command-line utility, so
-different criteria and behaviour would be used for a persistent web
+different criteria and behavior would be used for a persistent web
 service.)
 
 For each word remaining within the search space, map each word's list of
@@ -185,8 +192,8 @@ when constructing candidate anagram phrases equivalent to the input word or
 phrase.
 
 Even though the final step is technically a brute-force approach, the search
-space will have been aggressively pruned from typically 100 thousand to 300
-thousand words to one tenth of that original number while loading the
+space will have been aggressively pruned from typically 100 thousand through 300
+thousand words and reduced to one tenth of that original number while loading the
 dictionary.
 
 
@@ -194,10 +201,12 @@ dictionary.
 > pruned search space (`N`) and phrase length (`M`).  This has been the case
 > when N begins above 300k but reduced within N=30 to N=4000 for M=2 and M=4
 > word English phrases.
-> 
+>
 > Running time for those have been well *under one second* on a single core
 > of i7-8550U CPU with laptop-grade SSD storage for a 25 character, 4 word
-> input phrase.  Be sure to build with `--release` flag, first.
+> input phrase.
+>
+> Be sure to **build with `--release` flag**, first.
 
 
 In addition, this implementation leverages many opportunities for local
@@ -206,11 +215,11 @@ iteration and short-circuits based upon commutative properties of
 multiplication.
 
 Duplicates get removed from preliminary result with small performance
-penalty of another ephemeral BTreeMap, where each keys are words of a
+penalty of another ephemeral BTreeMap, where keys are words of a
 matching phrase sorted and concatenated.
 
 Also note that each word's product gets computed from the *list* of its
-primes rather than a set because duplicate characters must be tracked.
+primes rather than a *set* because duplicate characters must be tracked.
 
 
 Selection of the final phrase may be performed by visual inspection for one
@@ -223,19 +232,19 @@ To Do:
 
 - [ ] **1.** Accommodate languages beyond those with scripts represented by
   ISO-8859-1 character sets.
-  
+
   The initial implementation uses `ispell` and GNU `aspell` style dictionary
   files, so in theory any natural language for which comparable word lists
   exist may be supported.  Initially, it's limited to alphabetic range
   within ISO-8859-1, even when loading a dictionary file encoded as UTF-8.
-  
+
   We map each language's actively used alphabet to a contiguous sequence of
   prime numbers.  Therefore, the full UTF-8 character set is extremely
   problematic for use as-is.
-  
+
   Local knowledge of each language could provide this mapping of each
   language's script to a compact set of primes.
-  
+
   A stand-alone [library](https://github.com/dpezely/char-seq/) is already
   in progress and accommodated here as a compiler option.
 
@@ -254,10 +263,10 @@ To Do:
   Select one that reduces words to their lemma form (not word stem) and
   performs parts-of-speech (PoS) tagging while having very efficient
   run-time, such as [spaCy.io](https://spacy.io/).
-  
+
   Then, obviously bogus candidates might be eliminated while preserving
   novel, silly and valid results.
-  
+
   (See [Intro to NLP](https://play.org/articles/introduction-to-natural-language-processing)
   article for the least you need to know about the topic and deploying.)
 
@@ -302,7 +311,7 @@ Optional dictionaries offer triple the number of words:
 A comprehensive set of word lists for European languages are available as [ispell-dictionaries](https://www.cs.hmc.edu/~geoff/ispell-dictionaries.html).
 Files may need to be decompressed first.
 
-Additional dictionaries may be loaded on Debian or Ubuntu flavours of Linux
+Additional dictionaries may be loaded on Debian or Ubuntu flavors of Linux
 by running:
 
 	sudo apt-get install \
@@ -310,7 +319,7 @@ by running:
 	  wbritish-huge \
 	  wamerican-huge
 
-For manual download of these files, see 
+For manual download of these files, see
 [SCOWL (Spell Checker Oriented Word Lists) and
 Friends](http://wordlist.sourceforge.net/).
 
@@ -319,13 +328,13 @@ dictionaries and word frequency reports.
 
 Confirm the character ranges within the dictionary word list:
 
-    grep -c "[^-' a-zA-Z]" wordlist 
+    grep -c "[^-' a-zA-Z]" wordlist
 
 > 0
 
 Count words with 18+ characters, as this implies large products:
 
-    grep -c '...................' wordlist 
+    grep -c '...................' wordlist
 
 > 2085
 

@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+## v0.4.0 - Edition 2021 maintenance release
+
+- Minor updates to wording within README
+- Resolve findings from `cargo +nightly clippy` as of rustc 1.67.1
+- Update to newer revisions of libraries
+- Replace obsolete/unmaintained dependencies suggested by `cargo audit`
+- Upgrade to Edition 2021: `cargo fix --edition`
+
 ## v0.3.0 - Library
 
 - Accommodates being used as library/API such as for web service,
