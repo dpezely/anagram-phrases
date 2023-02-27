@@ -1,13 +1,13 @@
 [package]
 name = "anagram-phrases"
-version = "0.3.0"
+version = "0.4.0"
 description = "Phrase-based anagram solver using prime number factorization"
 keywords = ["anagram", "primes"]
 repository = "https://github.com/dpezely/anagram-phrases"
 authors = ["Daniel Pezely <first name at last name dot com>"]
 readme = "README.md"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [badges]
 # Actually, yes, there are plans for additional features as a hobby
