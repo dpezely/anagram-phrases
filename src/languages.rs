@@ -12,22 +12,19 @@
 //! This module provides relatively simple mappings for reasonable
 //! defaults for each language supported.
 
-use clap::arg_enum;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::convert::From;
 
-arg_enum! {
-    /// Languages currently supported to varying degrees... Pull requests welcome
-    #[derive(Deserialize, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-    pub enum Language {
-        Any,
-        // Only necessary if something has been added to `UPCASE` or `SHORT`.
-        // Please keep this list sorted alphabetically.
-        EN,                         // English; Latin-1
-        ES,                         // Spanish, Español; Latin-1
-        FR,                         // French, Français; Latin-1
-    }
+/// Languages currently supported to varying degrees... Pull requests welcome
+#[derive(Deserialize, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Language {
+    Any,
+    // Only necessary if something has been added to `UPCASE` or `SHORT`.
+    // Please keep this list sorted alphabetically.
+    EN,                         // English; Latin-1
+    ES,                         // Spanish, Español; Latin-1
+    FR,                         // French, Français; Latin-1
 }
 
 /// Complements `Available` such that its `EN` for English may be
@@ -44,6 +41,10 @@ pub enum Region {
     UK,                         // unofficial but often preferred to GB
     US,
 }
+
+/// Error indicating a language unknown to this implementation
+#[derive(Debug)]
+pub struct LangNotImplemented;
 
 lazy_static! {
     /// Associate what words are acceptable when otherwise bypassing
@@ -72,6 +73,36 @@ lazy_static! {
     };
 }
 
+impl clap::ValueEnum for Language {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Language::Any, Language::EN, Language::ES, Language::FR]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        let value = match self {
+            Language::Any => clap::builder::PossibleValue::new("Any"),
+            Language::EN => clap::builder::PossibleValue::new("EN"),
+            Language::ES => clap::builder::PossibleValue::new("ES"),
+            Language::FR => clap::builder::PossibleValue::new("FR"),
+        };
+        Some(value)
+    }
+}
+
+impl std::str::FromStr for Language {
+    type Err = LangNotImplemented;
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        match string.to_uppercase().as_str() {
+            "ANY" => Ok(Language::Any),
+            "EN" => Ok(Language::EN),
+            "ES" => Ok(Language::ES),
+            "FR" => Ok(Language::FR),
+            _ => Err(LangNotImplemented),
+        }
+    }
+}
+
 impl From<&str> for Language {
     fn from(string: &str) -> Language {
         match string.to_uppercase().as_str() {
@@ -92,6 +123,12 @@ impl From<&str> for Region {
             "US" => Region::US,
             _ => Region::Any
         }
+    }
+}
+
+impl std::fmt::Display for LangNotImplemented {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "The requested language is not implemented")
     }
 }
 

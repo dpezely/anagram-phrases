@@ -2,7 +2,6 @@
 extern crate lazy_static;
 extern crate num_bigint;
 extern crate num_traits;
-extern crate structopt;
 
 #[cfg(feature="external-hasher")]
 extern crate char_seq;

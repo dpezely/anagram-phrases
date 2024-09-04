@@ -6,13 +6,13 @@ extern crate char_seq;
 
 extern crate anagram_phrases;
 
+use clap::Parser;
 use std::collections::BTreeMap;
 use std::convert::From;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::result::Result;
-use structopt::StructOpt;
 
 use anagram_phrases::error::ErrorKind;
 use anagram_phrases::languages::{self, Language, SHORT, UPCASE};
@@ -20,58 +20,56 @@ use anagram_phrases::primes::{self, Map};
 use anagram_phrases::search;
 use anagram_phrases::session::Session;
 
-#[derive(StructOpt, Debug)]
-#[structopt(max_term_width=80)]
+#[derive(Debug, Parser)]
+#[clap(max_term_width=80)]
 struct Options {
     /// Specify 2 letter ISO code for natural language such as EN for
     /// English, FR for Français, etc. to enable specific filters.
-    #[structopt(short="l", long="lang", required=false, default_value="Any",
-                possible_values=&Language::variants(), case_insensitive=true)]
+    #[clap(short='l', long="lang", required=false, default_value="Any",
+           ignore_case=true)]
     lang: Language,
 
     /// Must be a plain-text file containing one word per line.
     /// Files suitable for `ispell` or GNU `aspell` are compatible.
-    #[structopt(short="d", long="dict", multiple=true, number_of_values=1,
-                default_value="/usr/share/dict/words")]
+    #[clap(short='d', long="dict", default_values=["/usr/share/dict/words"])]
     dict_file_paths: Vec<String>,
 
     /// Defaults to one more than number of words within input phrase
     /// and a minimum of 3 words.
-    #[structopt(short="m", long="max", default_value="0")]
+    #[clap(short='m', long="max", default_value="0")]
     max_phrase_words: usize,
 
     /// Skip dictionary words containing uppercase, which indicates
     /// being a proper names.  However, use --lang=EN to allow "I" as
     /// an exception for English; etc.
-    #[structopt(short="u", long="upcase")]
+    #[clap(short='u', long="upcase")]
     skip_upcase: bool,
 
     /// Skip dictionary words containing single letters, which may
     /// help avoid noisy results.  However, use --lang=en allowing
     /// only `a` for English, `y` for Spanish, etc.
-    #[structopt(short="s", long="short")]
+    #[clap(short='s', long="short")]
     skip_short: bool,
 
     /// Load dictionaries as ISO-8859-1 rather than UTF-8 encoding
     // FIXME: also convert from Latin-2, etc.
-    #[structopt(short="1", long="iso-8859-1", aliases=&["alias"],
-                possible_values=&["latin-1","latin1"])]
+    #[clap(short='1', long="iso-8859-1")]
     iso_8859_1: bool,
 
     /// Display additional status information
-    #[structopt(short="v", long="verbose")]
+    #[clap(short='v', long="verbose")]
     verbose: bool,
 
     /// Currently, only ASCII and ISO-8859-* are supported.
     /// May be a single word or phrase consisting of multiple words.
     /// For a phrase, be sure to use quotes or escape spaces.
-    #[structopt(name="PHRASE")]
+    #[clap(name="PHRASE")]
     input_string: String,
 }
 
 /// Resolve a single anagram phrase or word from command-line parameters.
 fn main() -> Result<(), ErrorKind> {
-    let opts = Options::from_args();
+    let opts = Options::parse();
     let Options{lang, dict_file_paths, iso_8859_1, max_phrase_words,
                 skip_upcase, skip_short, verbose, input_string} = opts;
     let session =
@@ -210,4 +208,14 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
                  i, map.len());
     }
     Ok(())
+}
+
+#[cfg(test)] mod test {
+    use super::*;
+
+    #[test]
+    fn verify_cli() {
+        use clap::CommandFactory;
+        Options::command().debug_assert()
+    }
 }
