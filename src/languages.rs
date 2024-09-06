@@ -15,6 +15,7 @@
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::convert::From;
+use std::sync::LazyLock;
 
 /// Languages currently supported to varying degrees... Pull requests welcome
 #[derive(Deserialize, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -46,32 +47,30 @@ pub enum Region {
 #[derive(Debug)]
 pub struct LangNotImplemented;
 
-lazy_static! {
-    /// Associate what words are acceptable when otherwise bypassing
-    /// words containing upper case letters.  e.g., "I" isn't a proper
-    /// name in English, so it should be allowed.
-    /// Anything else should be rejected when the filter is applied to
-    /// minimize noise within results.
-    pub static ref UPCASE: BTreeMap<Language, Vec<&'static str>> = {
-        use Language::*;
-        let mut tree = BTreeMap::new();
-        tree.insert(EN, vec!["I"]);
-        tree
-    };
+/// Associate what words are acceptable when otherwise bypassing
+/// words containing upper case letters.  e.g., "I" isn't a proper
+/// name in English, so it should be allowed.
+/// Anything else should be rejected when the filter is applied to
+/// minimize noise within results.
+pub static UPCASE: LazyLock<BTreeMap<Language, Vec<&'static str>>> = LazyLock::new(|| {
+    use Language::*;
+    let mut tree = BTreeMap::new();
+    tree.insert(EN, vec!["I"]);
+    tree
+});
 
-    /// Associate what words are acceptable when otherwise bypassing
-    /// short word.  For instance, "a" is short but should be allowed
-    /// for English, and "y" is a conjunction in Spanish.
-    /// Anything else should be rejected when the filter is applied to
-    /// minimize noise within results.
-    pub static ref SHORT: BTreeMap<Language, Vec<&'static str>> = {
-        use Language::*;
-        let mut tree = BTreeMap::new();
-        tree.insert(EN, vec!["I", "a"]);
-        tree.insert(ES, vec!["y"]);
-        tree
-    };
-}
+/// Associate what words are acceptable when otherwise bypassing
+/// short word.  For instance, "a" is short but should be allowed
+/// for English, and "y" is a conjunction in Spanish.
+/// Anything else should be rejected when the filter is applied to
+/// minimize noise within results.
+pub static SHORT: LazyLock<BTreeMap<Language, Vec<&'static str>>> = LazyLock::new(|| {
+    use Language::*;
+    let mut tree = BTreeMap::new();
+    tree.insert(EN, vec!["I", "a"]);
+    tree.insert(ES, vec!["y"]);
+    tree
+});
 
 impl clap::ValueEnum for Language {
     fn value_variants<'a>() -> &'a [Self] {
