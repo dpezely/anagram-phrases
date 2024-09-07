@@ -72,7 +72,7 @@ impl<'a,'b> Search<'a> {
     // Implementation notes: Loading of dictionary word list tests for
     // exact match of products, so logic here builds upon that assumption.
 
-    // There's no Tail Call Optimizations as of Rust v1.35 and
+    // There's no Tail Call Optimizations as of Rust v1.35 [or 1.80) and
     // unlikely any time soon, so this violates conventional practice
     // by having other logic after a recursive call-- for readability.
     fn factors(&mut self, product: &'b BigUint, start: usize,
@@ -130,7 +130,7 @@ impl<'a,'b> Search<'a> {
             .map(|&x| x[0].as_str())
             .collect::<Vec<&str>>()
             .join("");
-        // Specifically avoiding the Entry API:
+        // Avoid the Entry API because this clears instead of updates.
         if self.dedup.contains_key(&string) {
             self.accumulator.clear();
         } else {

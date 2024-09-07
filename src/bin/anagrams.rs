@@ -35,23 +35,26 @@ struct Options {
 
     /// Defaults to one more than number of words within input phrase
     /// and a minimum of 3 words.
+    // Heuristic for minimum number of words gets applied in session.rs
     #[clap(short='m', long="max", default_value="0")]
     max_phrase_words: usize,
 
-    /// Skip dictionary words containing uppercase, which indicates
-    /// being a proper names.  However, use --lang=EN to allow "I" as
+    /// Include dictionary words containing uppercase, which indicates
+    /// being a proper names.  However, specify `--lang` to allow "I" as
     /// an exception for English; etc.
+    // v1.0: name changed and value inverted since v0.x
     #[clap(short='u', long="upcase")]
-    skip_upcase: bool,
+    include_upcase: bool,
 
-    /// Skip dictionary words containing single letters, which may
-    /// help avoid noisy results.  However, use --lang=en allowing
-    /// only `a` for English, `y` for Spanish, etc.
+    /// Include dictionary words containing single letters, which may
+    /// help avoid noisy results.  However, specify `--lang` allowing
+    /// exceptions of `a` for English, `y` for Spanish, etc.
+    // v1.0: name changed and value inverted since v0.x
     #[clap(short='s', long="short")]
-    skip_short: bool,
+    include_short: bool,
 
     /// Load dictionaries as ISO-8859-1 rather than UTF-8 encoding
-    // FIXME: also convert from Latin-2, etc.
+    // TODO also convert from Latin-2, etc.
     #[clap(short='1', long="iso-8859-1")]
     iso_8859_1: bool,
 
@@ -70,7 +73,9 @@ struct Options {
 fn main() -> Result<()> {
     let opts = Options::parse();
     let Options{lang, dict_file_paths, iso_8859_1, max_phrase_words,
-                skip_upcase, skip_short, verbose, input_string} = opts;
+                include_upcase, include_short, verbose, input_string} = opts;
+    let skip_upcase = !include_upcase;
+    let skip_short = !include_short;
     let session =
         Session::start(&lang, dict_file_paths, iso_8859_1, max_phrase_words,
                        skip_upcase, skip_short, verbose, &input_string)?;
