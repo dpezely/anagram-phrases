@@ -1,6 +1,6 @@
 use num_bigint::BigUint;
 
-use crate::error::ErrorKind;
+use crate::error::Result;
 use crate::languages::Language;
 use crate::primes;
 
@@ -31,7 +31,7 @@ impl<'a> Session<'a> {
     pub fn start(lang: &'a Language, dict_file_paths: Vec<String>,
                  iso_8859_1: bool, max_phrase_words: usize,
                  skip_upcase: bool, skip_short: bool, verbose: bool,
-                 input_string: &'a str) -> Result<Session<'a>, ErrorKind> {
+                 input_string: &'a str) -> Result<Session<'a>> {
         let mut dict_file_paths = dict_file_paths;
         let mut max_phrase_words = max_phrase_words;
         if dict_file_paths.is_empty() {

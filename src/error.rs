@@ -1,9 +1,11 @@
 use thiserror::Error;
 use std::convert::From;
 
+pub type Result<T> = std::result::Result<T, AnagramError>;
+
 #[derive(Debug, Error, PartialEq)]
 #[must_use]
-pub enum ErrorKind {
+pub enum AnagramError {
     #[error("Character is outside of expected character set range")]
     CharOutOfBounds,
 
@@ -33,31 +35,31 @@ pub enum ErrorKind {
 }
 
 
-impl From<std::io::Error> for ErrorKind {
-    fn from(err: std::io::Error) -> ErrorKind {
+impl From<std::io::Error> for AnagramError {
+    fn from(err: std::io::Error) -> AnagramError {
         match err.kind() {
             std::io::ErrorKind::NotFound => {
                 println!("File or directory path not found: {:?}", err);
-                ErrorKind::NoFilePath
+                AnagramError::NoFilePath
             }
             _ => {
                 println!("IO Error: {:?}", err);
-                ErrorKind::UnknownIoError
+                AnagramError::UnknownIoError
             }
         }
     }
 }
 
-impl From<std::io::ErrorKind> for ErrorKind {
-    fn from(err: std::io::ErrorKind) -> ErrorKind {
+impl From<std::io::ErrorKind> for AnagramError {
+    fn from(err: std::io::ErrorKind) -> AnagramError {
         match err {
             std::io::ErrorKind::NotFound => {
                 println!("File or directory path not found: {:?}", err);
-                ErrorKind::NoFilePath
+                AnagramError::NoFilePath
             }
             _ => {
                 println!("IO Error: {:?}", err);
-                ErrorKind::UnknownIoError
+                AnagramError::UnknownIoError
             }
         }
     }

@@ -12,9 +12,8 @@ use std::convert::From;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::result::Result;
 
-use anagram_phrases::error::ErrorKind;
+use anagram_phrases::error::Result;
 use anagram_phrases::languages::{self, Language, SHORT, UPCASE};
 use anagram_phrases::primes::{self, Map};
 use anagram_phrases::search;
@@ -68,7 +67,7 @@ struct Options {
 }
 
 /// Resolve a single anagram phrase or word from command-line parameters.
-fn main() -> Result<(), ErrorKind> {
+fn main() -> Result<()> {
     let opts = Options::parse();
     let Options{lang, dict_file_paths, iso_8859_1, max_phrase_words,
                 skip_upcase, skip_short, verbose, input_string} = opts;
@@ -79,7 +78,7 @@ fn main() -> Result<(), ErrorKind> {
     Ok(())
 }
 
-fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
+fn resolve_single(session: &Session) -> Result<()> {
     if session.verbose {
         println!("filter based upon rules for lang={:?}", session.lang);
         println!("input phrase: {}", &session.input_string);
@@ -146,7 +145,7 @@ fn resolve_single(session: &Session) -> Result<(), ErrorKind> {
 /// `primes::filter_word()`.
 /// SIDE-EFFECTS: `wordlist` and `map` will likely be updated.
 fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
-                 session: &Session) -> Result<(), ErrorKind> {
+                 session: &Session) -> Result<()> {
     let input_length = session.essential.len();
     let empty: Vec<&str> = vec![];
     let short_words = SHORT.get(&session.lang).unwrap_or(&empty);

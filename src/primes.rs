@@ -3,12 +3,11 @@ use num_bigint::ToBigUint;
 use num_traits::{One, Zero};
 use std::collections::BTreeMap;
 use std::ops::Rem;
-use std::result::Result;
 
 #[cfg(feature="external-hasher")]
 use char_seq;
 
-use crate::error::ErrorKind;
+use crate::error::{AnagramError, Result};
 
 pub type Map = BTreeMap<BigUint, Vec<String>>;
 
@@ -52,21 +51,21 @@ const PRIMES: [u16; 200] =
 /// associated with all alphanumeric characters (not just uniques)
 /// from the input phrase.
 pub fn filter_word(word: &str, pattern: &str, input_length: usize,
-                   input_product: &BigUint) -> Result<BigUint, ErrorKind> {
+                   input_product: &BigUint) -> Result<BigUint> {
     let word_chars = essential_chars(word);
     if word_chars.len() > input_length {
-        return Err(ErrorKind::WordTooLong)
+        return Err(AnagramError::WordTooLong)
     }
     let unique_chars = extract_unique_chars(word);
     if !matched_chars(&unique_chars, pattern) {
-        return Err(ErrorKind::MismatchedChars)
+        return Err(AnagramError::MismatchedChars)
     }
     let product = primes_product(&primes(&word_chars)?)?;
     if product > *input_product {
-        return Err(ErrorKind::WordProductTooBig)
+        return Err(AnagramError::WordProductTooBig)
     }
     if input_product.rem(&product) != Zero::zero() {
-        return Err(ErrorKind::WordProductNotFactor)
+        return Err(AnagramError::WordProductNotFactor)
     }
     Ok(product)
 }
@@ -110,7 +109,7 @@ pub fn matched_chars(word: &str, pattern: &str) -> bool {
 
 /// Hash a string's "essential" characters to a sequence of prime numbers.
 /// See `essential_chars()`.
-pub fn primes(essential: &str) -> Result<Vec<u16>, ErrorKind> {
+pub fn primes(essential: &str) -> Result<Vec<u16>> {
     let mut result = Vec::with_capacity(essential.len());
     for ch in essential.chars() {
         if let Some(index) = hash(ch) {
@@ -121,7 +120,7 @@ pub fn primes(essential: &str) -> Result<Vec<u16>, ErrorKind> {
             println!("Error: unable to select a prime \
                       for '{}' (U+{:04x}) in \"{}\"",
                      ch, ch as usize, &essential);
-            return Err(ErrorKind::CharOutOfBounds)            
+            return Err(AnagramError::CharOutOfBounds)
         }
     }
     Ok(result)
@@ -130,13 +129,13 @@ pub fn primes(essential: &str) -> Result<Vec<u16>, ErrorKind> {
 /// For a set of prime numbers, multiply all of them together
 /// producing a single product.  This result may overflow `u64` or
 /// `u128`, so a big num implementation, `num-bigint` crate, is used.
-pub fn primes_product(primes: &[u16]) -> Result<BigUint, ErrorKind> {
+pub fn primes_product(primes: &[u16]) -> Result<BigUint> {
     let mut result = One::one();
     for p in primes.iter() {
         if let Some(bignum) = ToBigUint::to_biguint(p) {
             result *= bignum;
         } else {
-            return Err(ErrorKind::PrimeTooBig)
+            return Err(AnagramError::PrimeTooBig)
         }
     }
     Ok(result)

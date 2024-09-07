@@ -1,7 +1,7 @@
 use num_bigint::{BigUint, ToBigUint};
 use std::collections::BTreeMap;
 
-use crate::error::ErrorKind;
+use crate::error::AnagramError;
 use crate::primes::*;
 
 #[test]
@@ -64,21 +64,21 @@ fn product() {
 fn filtering() {
     let product: BigUint = 2u8.to_biguint().unwrap();
     match filter_word("abc", "a", 1, &product) {
-        Err(ErrorKind::WordTooLong) => {}
+        Err(AnagramError::WordTooLong) => {}
         other => panic!("expected: {} received: {:?}",
-                        ErrorKind::WordTooLong, other)
+                        AnagramError::WordTooLong, other)
     }
     match filter_word("z", "a", 1, &product) {
-        Err(ErrorKind::MismatchedChars) => {}
+        Err(AnagramError::MismatchedChars) => {}
         other => panic!("expected: {} received: {:?}",
-                        ErrorKind::MismatchedChars, other)
+                        AnagramError::MismatchedChars, other)
     }
 
     let product: BigUint = (2 * 3 * 5 * 101).to_biguint().unwrap();
     match filter_word("zzz", "abcz", 4, &product) {
-        Err(ErrorKind::WordProductTooBig) => {}
+        Err(AnagramError::WordProductTooBig) => {}
         other => panic!("expected: {} received: {:?}",
-                        ErrorKind::WordProductTooBig, other)
+                        AnagramError::WordProductTooBig, other)
     }
 }
 
