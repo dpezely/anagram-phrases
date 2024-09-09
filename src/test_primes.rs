@@ -10,8 +10,10 @@ fn uniques() {
     assert_eq!(extract_unique_chars("this is that"), "thisa".to_string());
     assert_eq!(extract_unique_chars("This Is That"), "thisa".to_string());
     assert_eq!(extract_unique_chars("My cat's hat"), "mycatsh".to_string());
-    assert_eq!(extract_unique_chars("Liberté, Égalité, Fraternité"),
-               "libertégafn".to_string())
+    assert_eq!(
+        extract_unique_chars("Liberté, Égalité, Fraternité"),
+        "libertégafn".to_string()
+    )
 }
 
 #[test]
@@ -43,20 +45,32 @@ fn product() {
     #[cfg(not(feature = "disable-u128"))]
     {
         let word = "superconductivity";
-        let big: u128 = 67 * 73 * 53 * 11 * 61
-            * 5 * 47 * 43 * 7 * 73 * 5 * 71 * 23 * 79 * 23 * 71 * 97;
+        let big: u128 = 67
+            * 73
+            * 53
+            * 11
+            * 61
+            * 5
+            * 47
+            * 43
+            * 7
+            * 73
+            * 5
+            * 71
+            * 23
+            * 79
+            * 23
+            * 71
+            * 97;
         let product = primes(word).unwrap();
-        assert_eq!(primes_product(&product).unwrap(),
-                   big.to_biguint().unwrap());
+        assert_eq!(primes_product(&product).unwrap(), big.to_biguint().unwrap());
     }
     #[cfg(feature = "disable-u128")]
     {
         let word = "conductivity";
-        let big: u64 =
-            5 * 47 * 43 * 7 * 73 * 5 * 71 * 23 * 79 * 23 * 71 * 97;
+        let big: u64 = 5 * 47 * 43 * 7 * 73 * 5 * 71 * 23 * 79 * 23 * 71 * 97;
         let product = primes(word).unwrap();
-        assert_eq!(primes_product(&product).unwrap(),
-                   big.to_biguint().unwrap());
+        assert_eq!(primes_product(&product).unwrap(), big.to_biguint().unwrap());
     }
 }
 
@@ -65,33 +79,40 @@ fn filtering() {
     let product: BigUint = 2u8.to_biguint().unwrap();
     match filter_word("abc", "a", 1, &product) {
         Err(AnagramError::WordTooLong) => {}
-        other => panic!("expected: {} received: {:?}",
-                        AnagramError::WordTooLong, other)
+        other => panic!("expected: {} received: {:?}", AnagramError::WordTooLong, other),
     }
     match filter_word("z", "a", 1, &product) {
         Err(AnagramError::MismatchedChars) => {}
-        other => panic!("expected: {} received: {:?}",
-                        AnagramError::MismatchedChars, other)
+        other => {
+            panic!("expected: {} received: {:?}", AnagramError::MismatchedChars, other)
+        }
     }
 
     let product: BigUint = (2 * 3 * 5 * 101).to_biguint().unwrap();
     match filter_word("zzz", "abcz", 4, &product) {
         Err(AnagramError::WordProductTooBig) => {}
-        other => panic!("expected: {} received: {:?}",
-                        AnagramError::WordProductTooBig, other)
+        other => {
+            panic!("expected: {} received: {:?}", AnagramError::WordProductTooBig, other)
+        }
     }
 }
 
 #[test]
 fn positive_1() {
-    with_static_dictionary("torchwood", &["doctor", "who"],
-                           &[71,47,61,5,19,83,47,47,7]);
+    with_static_dictionary(
+        "torchwood",
+        &["doctor", "who"],
+        &[71, 47, 61, 5, 19, 83, 47, 47, 7],
+    );
 }
 
 #[test]
 fn positive_2() {
-    with_static_dictionary("panic moon", &["companion"],
-                           &[53,2,43,23,5,41,47,47,43]);
+    with_static_dictionary(
+        "panic moon",
+        &["companion"],
+        &[53, 2, 43, 23, 5, 41, 47, 47, 43],
+    );
 }
 
 fn with_static_dictionary(input: &str, dictionary: &[&str], primes: &[u16]) {
@@ -105,8 +126,9 @@ fn with_static_dictionary(input: &str, dictionary: &[&str], primes: &[u16]) {
             let mut map: Map = BTreeMap::new();
             let mut wordlist: Vec<String> = vec![];
             for word in dictionary {
-                if let Ok(product) = filter_word(word, &pattern, input_length,
-                                                 &input_product) {
+                if let Ok(product) =
+                    filter_word(word, &pattern, input_length, &input_product)
+                {
                     map.entry(product)
                         .or_insert(Vec::with_capacity(1))
                         .push(word.to_string());
@@ -116,19 +138,18 @@ fn with_static_dictionary(input: &str, dictionary: &[&str], primes: &[u16]) {
             assert_eq!(map.len(), dictionary.len());
             assert_eq!(wordlist, dictionary)
         }
-        other =>
-            panic!("expected: {} received: {:?}", product, other)
+        other => panic!("expected: {} received: {:?}", product, other),
     }
 }
 
-#[cfg(not(feature="external-hasher"))]
+#[cfg(not(feature = "external-hasher"))]
 #[test]
 fn latin1() {
     // Within the ASCII range, accept only [a-z]
     assert!(hash('\u{0060}').is_none());
-    assert!(hash('\u{0061}').is_some());  // `a`
-    assert!(hash('\u{006f}').is_some());  // `o`
-    assert!(hash('\u{007a}').is_some());  // `z`
+    assert!(hash('\u{0061}').is_some()); // `a`
+    assert!(hash('\u{006f}').is_some()); // `o`
+    assert!(hash('\u{007a}').is_some()); // `z`
     assert!(hash('\u{007b}').is_none());
 
     assert!(hash('\u{00A0}').is_none()); // NBSP
@@ -139,14 +160,14 @@ fn latin1() {
     assert!(hash('\u{00ff}').is_some());
 }
 
-#[cfg(feature="external-hasher")]
+#[cfg(feature = "external-hasher")]
 #[test]
 fn latin_extended_a() {
     // Within the ASCII range, accept only [a-z]
     assert!(hash('\u{0060}').is_none());
-    assert!(hash('\u{0061}').is_some());  // `a`
-    assert!(hash('\u{006f}').is_some());  // `o`
-    assert!(hash('\u{007a}').is_some());  // `z`
+    assert!(hash('\u{0061}').is_some()); // `a`
+    assert!(hash('\u{006f}').is_some()); // `o`
+    assert!(hash('\u{007a}').is_some()); // `z`
     assert!(hash('\u{007b}').is_none());
 
     assert!(hash('\u{00a0}').is_none()); // NBSP

@@ -1,7 +1,7 @@
 extern crate num_bigint;
 extern crate num_traits;
 
-#[cfg(feature="external-hasher")]
+#[cfg(feature = "external-hasher")]
 extern crate char_seq;
 
 pub mod error;

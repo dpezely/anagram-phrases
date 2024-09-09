@@ -23,9 +23,9 @@ pub enum Language {
     Any,
     // Only necessary if something has been added to `UPCASE` or `SHORT`.
     // Please keep this list sorted alphabetically.
-    EN,                         // English; Latin-1
-    ES,                         // Spanish, Español; Latin-1
-    FR,                         // French, Français; Latin-1
+    EN, // English; Latin-1
+    ES, // Spanish, Español; Latin-1
+    FR, // French, Français; Latin-1
 }
 
 /// Complements `Available` such that its `EN` for English may be
@@ -38,8 +38,8 @@ pub enum Region {
     Any,
     // Please keep this alphabetized:
     CA,
-    GB,                         // official but some use UK
-    UK,                         // unofficial but often preferred to GB
+    GB, // official but some use UK
+    UK, // unofficial but often preferred to GB
     US,
 }
 
@@ -52,12 +52,13 @@ pub struct LangNotImplemented;
 /// name in English, so it should be allowed.
 /// Anything else should be rejected when the filter is applied to
 /// minimize noise within results.
-pub static UPCASE: LazyLock<BTreeMap<Language, Vec<&'static str>>> = LazyLock::new(|| {
-    use Language::*;
-    let mut tree = BTreeMap::new();
-    tree.insert(EN, vec!["I"]);
-    tree
-});
+pub static UPCASE: LazyLock<BTreeMap<Language, Vec<&'static str>>> =
+    LazyLock::new(|| {
+        use Language::*;
+        let mut tree = BTreeMap::new();
+        tree.insert(EN, vec!["I"]);
+        tree
+    });
 
 /// Associate what words are acceptable when otherwise bypassing
 /// short word.  For instance, "a" is short but should be allowed
@@ -108,7 +109,7 @@ impl From<&str> for Language {
             "EN" => Language::EN,
             "ES" => Language::ES,
             "FR" => Language::FR,
-            _ => Language::Any
+            _ => Language::Any,
         }
     }
 }
@@ -120,7 +121,7 @@ impl From<&str> for Region {
             "GB" => Region::GB,
             "UK" => Region::GB, // UK is ISO-unofficial but regionally correct
             "US" => Region::US,
-            _ => Region::Any
+            _ => Region::Any,
         }
     }
 }
@@ -137,8 +138,10 @@ impl std::fmt::Display for LangNotImplemented {
 /// Boolean parameters take precedence over supplied word lists.
 /// Return value indicates whether to reject dictionary `word` or not.
 #[inline]
-pub fn filter(word: &str, short_words: &[&str], upcase_words: &[&str],
-              skip_short: bool, skip_upcase: bool) -> bool {
+pub fn filter(
+    word: &str, short_words: &[&str], upcase_words: &[&str], skip_short: bool,
+    skip_upcase: bool,
+) -> bool {
     if word.len() == 1 {
         if skip_short {
             true

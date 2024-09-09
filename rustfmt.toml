@@ -1,0 +1,5 @@
+fn_params_layout = "Compressed"
+max_width = 90
+# overflow_delimited_expr = true
+# style_edition = 2021
+use_small_heuristics = "Max"

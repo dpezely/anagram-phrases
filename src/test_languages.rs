@@ -1,4 +1,4 @@
-use crate::languages::{self, UPCASE, SHORT, Language, Region};
+use crate::languages::{self, Language, Region, SHORT, UPCASE};
 
 #[test]
 fn filters() {

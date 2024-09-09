@@ -1,5 +1,5 @@
-use thiserror::Error;
 use std::convert::From;
+use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AnagramError>;
 
@@ -33,7 +33,6 @@ pub enum AnagramError {
     #[error("Reject words longer than input pattern")]
     WordTooLong,
 }
-
 
 impl From<std::io::Error> for AnagramError {
     fn from(err: std::io::Error) -> AnagramError {

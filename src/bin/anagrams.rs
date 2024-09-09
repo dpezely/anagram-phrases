@@ -1,7 +1,7 @@
 //! Command-line interface for solving anagrams and allows multiple
 //! words for input and results.
 
-#[cfg(feature="external-hasher")]
+#[cfg(feature = "external-hasher")]
 extern crate char_seq;
 
 extern crate anagram_phrases;
@@ -20,12 +20,17 @@ use anagram_phrases::search;
 use anagram_phrases::session::Session;
 
 #[derive(Debug, Parser)]
-#[clap(max_term_width=80)]
+#[clap(max_term_width = 80)]
 struct Options {
     /// Specify 2 letter ISO code for natural language such as EN for
     /// English, FR for Français, etc. to enable specific filters.
-    #[clap(short='l', long="lang", required=false, default_value="Any",
-           ignore_case=true)]
+    #[clap(
+        short = 'l',
+        long = "lang",
+        required = false,
+        default_value = "Any",
+        ignore_case = true
+    )]
     lang: Language,
 
     /// Must be a plain-text file containing one word per line.
@@ -36,49 +41,64 @@ struct Options {
     /// Defaults to one more than number of words within input phrase
     /// and a minimum of 3 words.
     // Heuristic for minimum number of words gets applied in session.rs
-    #[clap(short='m', long="max", default_value="0")]
+    #[clap(short = 'm', long = "max", default_value = "0")]
     max_phrase_words: usize,
 
     /// Include dictionary words containing uppercase, which indicates
     /// being a proper names.  However, specify `--lang` to allow "I" as
     /// an exception for English; etc.
     // v1.0: name changed and value inverted since v0.x
-    #[clap(short='u', long="upcase")]
+    #[clap(short = 'u', long = "upcase")]
     include_upcase: bool,
 
     /// Include dictionary words containing single letters, which may
     /// help avoid noisy results.  However, specify `--lang` allowing
     /// exceptions of `a` for English, `y` for Spanish, etc.
     // v1.0: name changed and value inverted since v0.x
-    #[clap(short='s', long="short")]
+    #[clap(short = 's', long = "short")]
     include_short: bool,
 
     /// Load dictionaries as ISO-8859-1 rather than UTF-8 encoding
     // TODO also convert from Latin-2, etc.
-    #[clap(short='1', long="iso-8859-1")]
+    #[clap(short = '1', long = "iso-8859-1")]
     iso_8859_1: bool,
 
     /// Display additional status information
-    #[clap(short='v', long="verbose")]
+    #[clap(short = 'v', long = "verbose")]
     verbose: bool,
 
     /// Currently, only ASCII and ISO-8859-* are supported.
     /// May be a single word or phrase consisting of multiple words.
     /// For a phrase, be sure to use quotes or escape spaces.
-    #[clap(name="PHRASE")]
+    #[clap(name = "PHRASE")]
     input_string: String,
 }
 
 /// Resolve a single anagram phrase or word from command-line parameters.
 fn main() -> Result<()> {
     let opts = Options::parse();
-    let Options{lang, dict_file_paths, iso_8859_1, max_phrase_words,
-                include_upcase, include_short, verbose, input_string} = opts;
+    let Options {
+        lang,
+        dict_file_paths,
+        iso_8859_1,
+        max_phrase_words,
+        include_upcase,
+        include_short,
+        verbose,
+        input_string,
+    } = opts;
     let skip_upcase = !include_upcase;
     let skip_short = !include_short;
-    let session =
-        Session::start(&lang, dict_file_paths, iso_8859_1, max_phrase_words,
-                       skip_upcase, skip_short, verbose, &input_string)?;
+    let session = Session::start(
+        &lang,
+        dict_file_paths,
+        iso_8859_1,
+        max_phrase_words,
+        skip_upcase,
+        skip_short,
+        verbose,
+        &input_string,
+    )?;
     resolve_single(&session)?;
     Ok(())
 }
@@ -90,8 +110,11 @@ fn resolve_single(session: &Session) -> Result<()> {
         println!("pattern: {}", &session.pattern);
         println!("essential-chars: {}", &session.essential);
         println!("primes: {:?}", &session.primes);
-        println!("primes-product: {} ({} bits)",
-                 &session.primes_product, session.primes_product.bits());
+        println!(
+            "primes-product: {} ({} bits)",
+            &session.primes_product,
+            session.primes_product.bits()
+        );
     }
     let mut map: Map = BTreeMap::new();
     let mut wordlist: Vec<String> = vec![];
@@ -108,8 +131,8 @@ fn resolve_single(session: &Session) -> Result<()> {
         if session.verbose {
             println!("\nCandidate phrases:\n");
         }
-        let results = search::brute_force(&session.primes_product, &map,
-                                          session.max_phrase_words);
+        let results =
+            search::brute_force(&session.primes_product, &map, session.max_phrase_words);
         let results = results.0; // unpack tuple struct, Candidate
         if session.verbose {
             println!("Results={}", results.len());
@@ -149,6 +172,7 @@ fn resolve_single(session: &Session) -> Result<()> {
 /// Other parameters are same as their namesakes from
 /// `primes::filter_word()`.
 /// SIDE-EFFECTS: `wordlist` and `map` will likely be updated.
+#[rustfmt::skip]
 fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
                  session: &Session) -> Result<()> {
     let input_length = session.essential.len();
@@ -214,7 +238,8 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
     Ok(())
 }
 
-#[cfg(test)] mod test {
+#[cfg(test)]
+mod test {
     use super::*;
 
     #[test]

@@ -15,6 +15,7 @@ use crate::primes::Map;
 /// Intentions for `accumulator` are that-- per instance-- it gets
 /// populated to completion of a single candidate phrase that is an
 /// anagram for the input phrase; otherwise, contents get discarded.
+#[rustfmt::skip]
 struct Search<'a> {
     dictionary: &'a Map,               // keys (sorted) go in descending_keys
     limit: usize,                      // keys.len()
@@ -38,22 +39,28 @@ pub struct Candidate<'a>(pub Vec<Vec<&'a Vec<String>>>);
 /// match of remaining factor within `map` for a two word result; 2)
 /// test each word's product to see if it's a factor of the remaining
 /// factor within `map` for possible n-word result.
-pub fn brute_force<'a>(primes_product: &BigUint, map: &'a Map,
-                          max_phrase_words: usize) -> Candidate<'a> {
+pub fn brute_force<'a>(
+    primes_product: &BigUint, map: &'a Map, max_phrase_words: usize,
+) -> Candidate<'a> {
     let mut search = Search::new(map);
     search.factors(primes_product, 0, max_phrase_words);
     search.results
 }
 
-impl<'a,'b> Search<'a> {
+impl<'a, 'b> Search<'a> {
     /// Constructor
     fn new(map: &'a Map) -> Self {
         let mut keys: Vec<&BigUint> = map.keys().collect();
         keys.sort_by(|a, b| b.cmp(a));
-        assert!(keys[0] > keys[keys.len()-1]);
-        Search{dictionary: map, limit: keys.len(), descending_keys: keys,
-               accumulator: vec![], dedup: BTreeMap::new(), 
-               results: Candidate(vec![])}
+        assert!(keys[0] > keys[keys.len() - 1]);
+        Search {
+            dictionary: map,
+            limit: keys.len(),
+            descending_keys: keys,
+            accumulator: vec![],
+            dedup: BTreeMap::new(),
+            results: Candidate(vec![]),
+        }
     }
 
     /// Find words in dictionary based upon prime number factorization.
@@ -75,9 +82,10 @@ impl<'a,'b> Search<'a> {
     // There's no Tail Call Optimizations as of Rust v1.35 [or 1.80) and
     // unlikely any time soon, so this violates conventional practice
     // by having other logic after a recursive call-- for readability.
-    fn factors(&mut self, product: &'b BigUint, start: usize,
-               recursion_depth: usize) {
-        if start >= self.limit { return }
+    fn factors(&mut self, product: &'b BigUint, start: usize, recursion_depth: usize) {
+        if start >= self.limit {
+            return;
+        }
         let zero = Zero::zero();
         let mut i = start;
         while i != self.limit {
@@ -89,7 +97,7 @@ impl<'a,'b> Search<'a> {
                 self.accumulator.push(words);
                 // Success: only one key in `dictionary` could match `product`
                 self.push_if_unique();
-                return
+                return;
             } else if product > test_product && product % test_product == zero {
                 // Found a factor that fits chain within accumulator.
                 // Optimization to possibly avoid recursion + loop:
@@ -98,16 +106,19 @@ impl<'a,'b> Search<'a> {
                     self.accumulator.push(words);
                     self.accumulator.push(more_words);
                     self.push_if_unique();
-                    if start > 0 { // Execution reached here via recursion
-                        return
+                    if start > 0 {
+                        // Execution reached here via recursion
+                        return;
                     }
-                } else if recursion_depth > 1 { // already checked 1 word remainder
+                } else if recursion_depth > 1 {
+                    // already checked 1 word remainder
                     self.accumulator.push(words);
                     // Avoid processing same entries; `i` already incremented
                     self.factors(&remainder, i, recursion_depth - 1);
-                    if start > 0 { // Execution reached here via recursion
+                    if start > 0 {
+                        // Execution reached here via recursion
                         self.accumulator.clear();
-                        return
+                        return;
                     }
                 }
             }
@@ -125,8 +136,10 @@ impl<'a,'b> Search<'a> {
     #[allow(clippy::map_entry)]
     fn push_if_unique(&mut self) {
         // Arrange (first) words within phrase in alphabetical order:
-        self.accumulator.sort_unstable_by(|a,b| a[0].cmp(&b[0]));
-        let string: String = self.accumulator.iter()
+        self.accumulator.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
+        let string: String = self
+            .accumulator
+            .iter()
             .map(|&x| x[0].as_str())
             .collect::<Vec<&str>>()
             .join("");

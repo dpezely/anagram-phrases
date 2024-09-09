@@ -28,19 +28,21 @@ impl<'a> Session<'a> {
     /// Creates new `Session` instance.  Ostensibly, this is a
     /// constructor but returning `Result` around `Session`.
     #[allow(clippy::too_many_arguments)]
-    pub fn start(lang: &'a Language, dict_file_paths: Vec<String>,
-                 iso_8859_1: bool, max_phrase_words: usize,
-                 skip_upcase: bool, skip_short: bool, verbose: bool,
-                 input_string: &'a str) -> Result<Session<'a>> {
+    pub fn start(
+        lang: &'a Language, dict_file_paths: Vec<String>, iso_8859_1: bool,
+        max_phrase_words: usize, skip_upcase: bool, skip_short: bool, verbose: bool,
+        input_string: &'a str,
+    ) -> Result<Session<'a>> {
         let mut dict_file_paths = dict_file_paths;
         let mut max_phrase_words = max_phrase_words;
         if dict_file_paths.is_empty() {
             dict_file_paths.push("/usr/share/dict/words".to_string());
         }
         if max_phrase_words == 0 {
-            let n = input_string.trim()
+            let n = input_string
+                .trim()
                 .chars()
-                .fold(0, |acc,ch| acc + ch.is_whitespace() as usize);
+                .fold(0, |acc, ch| acc + ch.is_whitespace() as usize);
             max_phrase_words = n;
         }
         if max_phrase_words < 2 {
@@ -51,9 +53,20 @@ impl<'a> Session<'a> {
         let essential = primes::essential_chars(input_string);
         let primes = primes::primes(&essential)?;
         let primes_product = primes::primes_product(&primes)?;
-        Ok(Session{lang: lang.clone(), dict_file_paths, max_phrase_words,
-                   iso_8859_1, skip_upcase, skip_short, verbose,
-                   input_string: input_string.to_string(), input_phrase,
-                   pattern, essential, primes, primes_product})
+        Ok(Session {
+            lang: lang.clone(),
+            dict_file_paths,
+            max_phrase_words,
+            iso_8859_1,
+            skip_upcase,
+            skip_short,
+            verbose,
+            input_string: input_string.to_string(),
+            input_phrase,
+            pattern,
+            essential,
+            primes,
+            primes_product,
+        })
     }
 }

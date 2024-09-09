@@ -4,7 +4,7 @@ use num_traits::{One, Zero};
 use std::collections::BTreeMap;
 use std::ops::Rem;
 
-#[cfg(feature="external-hasher")]
+#[cfg(feature = "external-hasher")]
 use char_seq;
 
 use crate::error::{AnagramError, Result};
@@ -21,6 +21,7 @@ pub type Map = BTreeMap<BigUint, Vec<String>>;
 /// isolate hasher results by natural language; e.g., isolate English
 /// from Français yet may be mixed for fr_CA and fr_FR, but
 /// dictionaries would differ.)
+#[rustfmt::skip]
 //   a,b,c,d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z
 const PRIMES: [u16; 200] =
     [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,
@@ -50,22 +51,23 @@ const PRIMES: [u16; 200] =
 /// the mathematical product of multiplying all prime numbers
 /// associated with all alphanumeric characters (not just uniques)
 /// from the input phrase.
-pub fn filter_word(word: &str, pattern: &str, input_length: usize,
-                   input_product: &BigUint) -> Result<BigUint> {
+pub fn filter_word(
+    word: &str, pattern: &str, input_length: usize, input_product: &BigUint,
+) -> Result<BigUint> {
     let word_chars = essential_chars(word);
     if word_chars.len() > input_length {
-        return Err(AnagramError::WordTooLong)
+        return Err(AnagramError::WordTooLong);
     }
     let unique_chars = extract_unique_chars(word);
     if !matched_chars(&unique_chars, pattern) {
-        return Err(AnagramError::MismatchedChars)
+        return Err(AnagramError::MismatchedChars);
     }
     let product = primes_product(&primes(&word_chars)?)?;
     if product > *input_product {
-        return Err(AnagramError::WordProductTooBig)
+        return Err(AnagramError::WordProductTooBig);
     }
     if input_product.rem(&product) != Zero::zero() {
-        return Err(AnagramError::WordProductNotFactor)
+        return Err(AnagramError::WordProductNotFactor);
     }
     Ok(product)
 }
@@ -101,7 +103,7 @@ pub fn essential_chars(word: &str) -> String {
 pub fn matched_chars(word: &str, pattern: &str) -> bool {
     for ch in word.chars() {
         if pattern.find(ch).is_none() {
-            return false
+            return false;
         }
     }
     true
@@ -117,10 +119,12 @@ pub fn primes(essential: &str) -> Result<Vec<u16>> {
         } else {
             // Probably char_seq::hasher() is incomplete.
             // Perhaps .to_lowercase() didn't work as expected?
-            println!("Error: unable to select a prime \
+            println!(
+                "Error: unable to select a prime \
                       for '{}' (U+{:04x}) in \"{}\"",
-                     ch, ch as usize, &essential);
-            return Err(AnagramError::CharOutOfBounds)
+                ch, ch as usize, &essential
+            );
+            return Err(AnagramError::CharOutOfBounds);
         }
     }
     Ok(result)
@@ -135,21 +139,22 @@ pub fn primes_product(primes: &[u16]) -> Result<BigUint> {
         if let Some(bignum) = ToBigUint::to_biguint(p) {
             result *= bignum;
         } else {
-            return Err(AnagramError::PrimeTooBig)
+            return Err(AnagramError::PrimeTooBig);
         }
     }
     Ok(result)
 }
 
 /// Map a char code-point from ISO-8859-* to index within `PRIMES`
-#[cfg(not(feature="external-hasher"))]
+#[cfg(not(feature = "external-hasher"))]
 #[inline]
 pub fn hash(ch: char) -> Option<usize> {
     if ch.is_ascii_lowercase() {
         // Accommodate all of ISO-8859-1 through -16
         // ASCII a=97,U+61, z=122,U+7A; 26 lowercase characters
         Some(ch as usize - 0x61)
-    } else if ('\u{00A1}'..='\u{00FF}').contains(&ch) { // skip NBSP
+    } else if ('\u{00A1}'..='\u{00FF}').contains(&ch) {
+        // skip NBSP
         // e.g., ISO-8859-1 has à=U+00E0, ÿ=U+00FF for lowercase
         // Not the most compact for iso-8859-1 but maintains
         // integrity for Cyrillic in iso-8859-5
@@ -159,11 +164,11 @@ pub fn hash(ch: char) -> Option<usize> {
     }
 }
 
-#[cfg(feature="external-hasher")]
+#[cfg(feature = "external-hasher")]
 #[inline]
 pub fn hash(ch: char) -> Option<usize> {
     // To replace this external dependency with your own, the
     // Cargo Guide section on Overriding Dependencies might help:
     //https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#overriding-dependencies
-   char_seq::hash(ch)
+    char_seq::hash(ch)
 }
