@@ -1,7 +1,13 @@
 # Makefile for building anagram-phrases
 
 .PHONY: all
-all: test release
+all: test clippy format release
+
+CARGO_BIN ?= /home/${USER}/.cargo/bin
+
+PATH := "${CARGO_BIN}:${PATH}"
+
+CRATE_DIR=$(shell ${CARGO_BIN}/cargo locate-project | jq .root | sed 's%/Cargo.toml%%')
 
 # If developing for this project:
 .PHONY: developer
@@ -15,14 +21,21 @@ developer: deps
 deps:
 	curl -sS --output /tmp/install-rust.sh https://sh.rustup.rs
 	/bin/bash /tmp/install-rust.sh -y
-	rustup component add rls clippy rust-analysis rust-src
-	cargo install cargo-tree
-	cargo install cargo-audit
+	PATH=${PATH} \
+	  rustup component add clippy rust-analyzer rust-src rustfmt
+	PATH=${PATH} \
+	  rustup +nightly component add clippy
+	PATH=${PATH} \
+	  cargo install cargo-tree
+	PATH=${PATH} \
+	  cargo install cargo-audit
 
 .PHONY: update
 update:
-	rustup self update
-	rustup update stable
+	PATH=${PATH} \
+	  rustup self update
+	PATH=${PATH} \
+	  rustup update stable
 
 # By default the Rust installation modifies PATH within ~/.profile
 # but you may want this set within ~/.bashrc instead:
@@ -40,23 +53,33 @@ dot-bashrc:
 
 .PHONY: build
 build:
-	cargo build --bin anagram-phrases
+	PATH=${PATH} \
+	  cargo build --bin anagram-phrases
 
 # Using the help flag as a test in itself confirms the Clap config is valid
 .PHONY: test
 test:
 	@echo "Running with --help to confirm clap config:"
-	cargo run --bin anagram-phrases -- --help
-	cargo test
+	[ $(shell PATH=${PATH} \
+	  cargo run --bin anagram-phrases -- --help | wc -l) = 31 ]
+	PATH=${PATH} \
+	  cargo test
 
-.PHONY: audit
-audit:
-	cargo audit
+.PHONY: clippy
+clippy:
+	PATH=${PATH} \
+	  cargo clippy --no-deps --all-targets --all-features -- -D warnings
+
+.PHONY: format
+format:
+	PATH=${PATH} \
+	  cargo fmt --check
 
 .PHONY: release
 release:
-	[ -f Cargo.lock ] && cargo clean --release -p $(shell cargo pkgid) || true
-	cargo build --release --bin anagram-phrases
+	[ -f Cargo.lock ] && PATH=${PATH} cargo clean --release -p anagram-phrases || true
+	PATH=${PATH} \
+	  cargo build --release --bin anagram-phrases
 
 # Build release for production using Docker with a Linux base image.
 # (Avoid cross-compiling on macOS with Linux target, which is
@@ -79,11 +102,24 @@ production-release:
 	        /var/tmp/bin/anagram-phrases.x86_64-unknown-linux-gnu
 	ls -lh target/anagram*
 
+future:
+	RUSTFLAGS="-D warnings" \
+	PATH=${PATH} \
+	  cargo build --release --future-incompat-report
+
+# Ensure working directory contains Cargo.lock
+# because cargo-audit gets lost if started in ./src/ or lower.
+.PHONY: audit
+audit:
+	cd ${CRATE_DIR} && \
+	RUSTFLAGS="-D warnings" \
+	PATH=${PATH} \
+	  cargo audit
+
 .PHONY: clean
 clean:
 	cargo clean || true
 
 .PHONY: dist-clean
 dist-clean: clean
-	find . -name '*~' -delete
-	rm -f Cargo.lock
+	git clean -dXff
