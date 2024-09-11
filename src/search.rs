@@ -1,5 +1,4 @@
 use num_bigint::BigUint;
-use num_traits::Zero;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -86,7 +85,6 @@ impl<'a, 'b> Search<'a> {
         if start >= self.limit {
             return;
         }
-        let zero = Zero::zero();
         let mut i = start;
         while i != self.limit {
             let test_product = self.descending_keys[i];
@@ -98,7 +96,7 @@ impl<'a, 'b> Search<'a> {
                 // Success: only one key in `dictionary` could match `product`
                 self.push_if_unique();
                 return;
-            } else if product > test_product && product % test_product == zero {
+            } else if product > test_product && product % test_product == BigUint::ZERO {
                 // Found a factor that fits chain within accumulator.
                 // Optimization to possibly avoid recursion + loop:
                 let remainder = product / test_product;

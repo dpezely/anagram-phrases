@@ -1,6 +1,6 @@
 use num_bigint::BigUint;
 use num_bigint::ToBigUint;
-use num_traits::{One, Zero};
+use num_traits::One;
 use std::collections::BTreeMap;
 use std::ops::Rem;
 
@@ -66,7 +66,7 @@ pub fn filter_word(
     if product > *input_product {
         return Err(AnagramError::WordProductTooBig);
     }
-    if input_product.rem(&product) != Zero::zero() {
+    if input_product.rem(&product) != BigUint::ZERO {
         return Err(AnagramError::WordProductNotFactor);
     }
     Ok(product)
