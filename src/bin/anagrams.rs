@@ -13,91 +13,53 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 
+use anagram_phrases::config::Config;
 use anagram_phrases::error::Result;
-use anagram_phrases::languages::{self, Language, SHORT, UPCASE};
+use anagram_phrases::languages::{self, Encoding, SHORT, UPCASE};
 use anagram_phrases::primes::{self, Map};
 use anagram_phrases::search;
 use anagram_phrases::session::Session;
 
+/// Query and runtime options.
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80)]
 struct Options {
-    /// Specify 2 letter ISO code for natural language such as EN for
-    /// English, FR for Français, etc. to enable specific filters.
-    #[clap(
-        short = 'l',
-        long = "lang",
-        required = false,
-        default_value = "Any",
-        ignore_case = true
-    )]
-    lang: Language,
+    /// One or more words to be resolved as transposition or anagram.
+    /// Only ASCII and ISO-8859-* character ranges supported as UTF-8.
+    #[clap(name = "WORD", required = true)]
+    input_phrase: Vec<String>,
 
-    /// Must be a plain-text file containing one word per line.
-    /// Files suitable for `ispell` or GNU `aspell` are compatible.
-    #[clap(short='d', long="dict", default_values=["/usr/share/dict/words"])]
-    dict_file_paths: Vec<String>,
-
-    /// Defaults to one more than number of words within input phrase
-    /// and a minimum of 3 words.
-    // Heuristic for minimum number of words gets applied in session.rs
-    #[clap(short = 'm', long = "max", default_value = "0")]
-    max_phrase_words: usize,
-
-    /// Include dictionary words containing uppercase, which indicates
-    /// being a proper names.  However, specify `--lang` to allow "I" as
-    /// an exception for English; etc.
-    // v1.0: name changed and value inverted since v0.x
-    #[clap(short = 'u', long = "upcase")]
-    include_upcase: bool,
-
-    /// Include dictionary words containing single letters, which may
-    /// help avoid noisy results.  However, specify `--lang` allowing
-    /// exceptions of `a` for English, `y` for Spanish, etc.
-    // v1.0: name changed and value inverted since v0.x
-    #[clap(short = 's', long = "short")]
-    include_short: bool,
-
-    /// Load dictionaries as ISO-8859-1 rather than UTF-8 encoding
-    // TODO also convert from Latin-2, etc.
-    #[clap(short = '1', long = "iso-8859-1")]
-    iso_8859_1: bool,
+    #[command(flatten)]
+    config: Config,
 
     /// Display additional status information
     #[clap(short = 'v', long = "verbose")]
     verbose: bool,
-
-    /// Currently, only ASCII and ISO-8859-* are supported.
-    /// May be a single word or phrase consisting of multiple words.
-    /// For a phrase, be sure to use quotes or escape spaces.
-    #[clap(name = "PHRASE")]
-    input_string: String,
 }
 
 /// Resolve a single anagram phrase or word from command-line parameters.
 fn main() -> Result<()> {
     let opts = Options::parse();
-    let Options {
+    let Options { input_phrase, config, verbose } = opts;
+    let Config {
         lang,
         dict_file_paths,
-        iso_8859_1,
+        encoding,
         max_phrase_words,
         include_upcase,
         include_short,
-        verbose,
-        input_string,
-    } = opts;
+    } = config;
     let skip_upcase = !include_upcase;
     let skip_short = !include_short;
     let session = Session::start(
         &lang,
-        dict_file_paths,
-        iso_8859_1,
+        &dict_file_paths,
+        encoding,
         max_phrase_words,
         skip_upcase,
         skip_short,
         verbose,
-        &input_string,
+        &input_phrase,
     )?;
     resolve_single(&session)?;
     Ok(())
@@ -106,7 +68,7 @@ fn main() -> Result<()> {
 fn resolve_single(session: &Session) -> Result<()> {
     if session.verbose {
         println!("filter based upon rules for lang={:?}", session.lang);
-        println!("input phrase: {}", &session.input_string);
+        println!("input string: {}", &session.input_string);
         println!("pattern: {}", &session.pattern);
         println!("essential-chars: {}", &session.essential);
         println!("primes: {:?}", &session.primes);
@@ -118,7 +80,7 @@ fn resolve_single(session: &Session) -> Result<()> {
     }
     let mut map: Map = BTreeMap::new();
     let mut wordlist: Vec<String> = vec![];
-    for file_path in &session.dict_file_paths {
+    for file_path in session.dict_file_paths.iter() {
         load_wordlist(&mut wordlist, &mut map, file_path, session)?;
     }
     if !wordlist.is_empty() {
@@ -173,8 +135,8 @@ fn resolve_single(session: &Session) -> Result<()> {
 /// `primes::filter_word()`.
 /// SIDE-EFFECTS: `wordlist` and `map` will likely be updated.
 #[rustfmt::skip]
-fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
-                 session: &Session) -> Result<()> {
+fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map,
+                 filepath: &std::path::PathBuf, session: &Session) -> Result<()> {
     let input_length = session.essential.len();
     let empty: Vec<&str> = vec![];
     let short_words = SHORT.get(&session.lang).unwrap_or(&empty);
@@ -192,32 +154,28 @@ fn load_wordlist(wordlist: &mut Vec<String>, map: &mut Map, filepath: &str,
         match f.read_until(0x0A, &mut bytes) {
             Ok(0) => break,     // End of file (EOF)
             Ok(_n) => {
-                if session.iso_8859_1 {
+                if session.encoding == Encoding::Iso_8859_1 {
                     word = bytes.iter().map(|&x| char::from(x)).collect();
                 } else {
                     word = String::from_utf8_lossy(&bytes).to_string();
                 }
                 word = word.trim().to_string();
-                if word.is_empty() {
-                    continue
-                }
-                if word == previous { // some dictionaries contain duplicates
-                    continue
-                }
+                if word.is_empty() { continue }
+                if word == previous { continue }
                 if languages::filter(&word, short_words, upcase_words,
                                     session.skip_short, session.skip_upcase) {
                     continue
                 }
-                if session.input_phrase.iter().any(|&x| x == word) {
-                    continue    // filter words from input phrase
-                }
+                // filter words from input phrase
+                if session.input_phrase.iter().any(|x| *x == word) { continue }
                 if let Ok(product) = primes::filter_word(&word, &session.pattern,
                                                          input_length,
                                                          &session.primes_product) {
-                    if product == session.primes_product { // single word match
+                    if product == session.primes_product {
+                        // single word match
                         wordlist.push(word.to_string());
-                    } else { // Store remaining words in look-up table:
-                        // FIXME: utilize PUSH-NEW semantics
+                    } else {
+                        // Store remaining words in look-up table:
                         map.entry(product)
                             .or_insert_with(|| Vec::with_capacity(1))
                             .push(word.to_string());

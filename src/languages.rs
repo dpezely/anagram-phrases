@@ -17,6 +17,8 @@ use std::collections::BTreeMap;
 use std::convert::From;
 use std::sync::LazyLock;
 
+use crate::error::AnagramError;
+
 /// Languages currently supported to varying degrees... Pull requests welcome
 #[derive(Deserialize, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Language {
@@ -43,13 +45,17 @@ pub enum Region {
     US,
 }
 
-/// Error indicating a language unknown to this implementation
-#[derive(Debug)]
-pub struct LangNotImplemented;
+#[derive(Debug, Default, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum Encoding {
+    #[default]
+    Utf_8,
+    Iso_8859_1,
+}
 
 /// Associate what words are acceptable when otherwise bypassing
 /// words containing upper case letters.  e.g., "I" isn't a proper
-/// name in English, so it should be allowed.
+/// noun/name in English, so it should be allowed.
 /// Anything else should be rejected when the filter is applied to
 /// minimize noise within results.
 pub static UPCASE: LazyLock<BTreeMap<Language, Vec<&'static str>>> =
@@ -69,28 +75,13 @@ pub static SHORT: LazyLock<BTreeMap<Language, Vec<&'static str>>> = LazyLock::ne
     use Language::*;
     let mut tree = BTreeMap::new();
     tree.insert(EN, vec!["I", "a"]);
-    tree.insert(ES, vec!["y"]);
+    tree.insert(ES, vec!["a", "y"]);
+    tree.insert(FR, vec!["a", "d", "i", "j", "l", "m", "s", "t", "y"]);
     tree
 });
 
-impl clap::ValueEnum for Language {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Language::Any, Language::EN, Language::ES, Language::FR]
-    }
-
-    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
-        let value = match self {
-            Language::Any => clap::builder::PossibleValue::new("Any"),
-            Language::EN => clap::builder::PossibleValue::new("EN"),
-            Language::ES => clap::builder::PossibleValue::new("ES"),
-            Language::FR => clap::builder::PossibleValue::new("FR"),
-        };
-        Some(value)
-    }
-}
-
 impl std::str::FromStr for Language {
-    type Err = LangNotImplemented;
+    type Err = AnagramError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         match string.to_uppercase().as_str() {
@@ -98,7 +89,7 @@ impl std::str::FromStr for Language {
             "EN" => Ok(Language::EN),
             "ES" => Ok(Language::ES),
             "FR" => Ok(Language::FR),
-            _ => Err(LangNotImplemented),
+            _ => Err(AnagramError::LangNotImplemented),
         }
     }
 }
@@ -123,12 +114,6 @@ impl From<&str> for Region {
             "US" => Region::US,
             _ => Region::Any,
         }
-    }
-}
-
-impl std::fmt::Display for LangNotImplemented {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "The requested language is not implemented")
     }
 }
 

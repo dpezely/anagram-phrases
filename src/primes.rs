@@ -22,6 +22,7 @@ pub type Map = BTreeMap<BigUint, Vec<String>>;
 /// from Français yet may be mixed for fr_CA and fr_FR, but
 /// dictionaries would differ.)
 #[rustfmt::skip]
+// TODO: per-LANG mapping from UTF-8 to continguous sequence of primes.
 //   a,b,c,d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z
 const PRIMES: [u16; 200] =
     [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,

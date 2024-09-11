@@ -4,6 +4,7 @@ extern crate num_traits;
 #[cfg(feature = "external-hasher")]
 extern crate char_seq;
 
+pub mod config;
 pub mod error;
 pub mod languages;
 pub mod primes;

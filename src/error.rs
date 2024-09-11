@@ -32,6 +32,9 @@ pub enum AnagramError {
 
     #[error("Reject words longer than input pattern")]
     WordTooLong,
+
+    #[error("The requested language is not implemented")]
+    LangNotImplemented,
 }
 
 impl From<std::io::Error> for AnagramError {

@@ -20,6 +20,7 @@ fn filters() {
     assert!(!languages::filter("a", short, upcase, false, false));
     assert!(!languages::filter("I", short, upcase, false, false));
 
+    // TODO: add natural languages
     // ES == Español, Spanish
     let short = SHORT.get(&Language::ES).unwrap();
     assert!(!languages::filter("y", short, upcase, false, false));
