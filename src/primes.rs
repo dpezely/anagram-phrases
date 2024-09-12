@@ -9,7 +9,9 @@ use char_seq;
 
 use crate::error::{AnagramError, Result};
 
-pub type Map = BTreeMap<BigUint, Vec<String>>;
+/// Product of primes associated with words in phrase
+/// used for intermediate and final results.
+pub type PMap = BTreeMap<BigUint, Vec<String>>;
 
 /// This is a sequence of mathematical prime numbers, whereby each
 /// letter of a given alphabet within a script such as Latin or
@@ -75,10 +77,10 @@ pub fn filter_word(
 
 /// Extract non-duplicate characters in preparation for pattern-matching
 #[allow(clippy::map_entry)]
-pub fn extract_unique_chars(word: &str) -> String {
-    let mut pattern = String::with_capacity(word.len());
+pub fn extract_unique_chars(input_string: &str) -> String {
+    let mut pattern = String::with_capacity(input_string.len());
     let mut map: BTreeMap<char, bool> = BTreeMap::new();
-    for ch in word.to_lowercase().chars() {
+    for ch in input_string.to_lowercase().chars() {
         if ch.is_alphabetic() && !map.contains_key(&ch) {
             map.insert(ch, true);
             pattern.push(ch);
@@ -90,9 +92,9 @@ pub fn extract_unique_chars(word: &str) -> String {
 /// Extract alphabetic characters while allowing duplicate characters
 /// but ignoring white-space, hyphens, apostrophes, etc.
 /// e.g., for determining length used while filtering word list entries
-pub fn essential_chars(word: &str) -> String {
-    let mut pattern = String::with_capacity(word.len());
-    for ch in word.to_lowercase().chars() {
+pub fn essential_chars(input_string: &str) -> String {
+    let mut pattern = String::with_capacity(input_string.len());
+    for ch in input_string.to_lowercase().chars() {
         if ch.is_alphabetic() {
             pattern.push(ch);
         }

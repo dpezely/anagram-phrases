@@ -14,3 +14,4 @@ pub mod session;
 pub mod test_languages;
 #[cfg(test)]
 pub mod test_primes;
+pub mod words;

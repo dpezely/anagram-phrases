@@ -2,8 +2,59 @@ use num_bigint::BigUint;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-use crate::primes::Map;
+use crate::config::Config;
+use crate::error::Result;
+use crate::primes;
+use crate::words::Cache;
 
+/// Values computed from each query.
+/// See also: [Session] and bin/anagrams.rs CLI Options.
+///
+/// NOTE: Multiple languages within same run-time are accommodated as
+/// an implementation detail of each app; e.g., CLI app filters while
+/// loading a transient dictionary, but HTTP service caches each dict
+/// and then filters per query.
+#[derive(Debug)]
+pub struct Search<'a, 'b> {
+    /// Query terms (words) after parsing for whitespace
+    pub input_phrase: &'a [String],
+
+    /// Set of unique characters extracted from query
+    pub pattern: String,
+    /// Alphabetic characters of query including duplicates
+    pub essential: String,
+    /// Set of prime numbers corresponding to `essential`
+    pub primes: Vec<u16>,
+    /// Grand total computed from all values in `primes`
+    pub primes_product: BigUint,
+
+    /// Configuration with any per-query override values
+    pub config: &'b Config,
+}
+
+impl<'a, 'b> Search<'a, 'b> {
+    /// Fallible constructor where search query is supplied.
+    /// Computes metadata.
+    /// Next, call fn [factors] via chaining.
+    pub fn query(
+        input_phrase: &'a [String], config: &'b Config,
+    ) -> Result<Search<'a, 'b>> {
+        let input_string = input_phrase.join("");
+        let pattern = primes::extract_unique_chars(&input_string);
+        let essential = primes::essential_chars(&input_string);
+        let primes = primes::primes(&essential)?;
+        let primes_product = primes::primes_product(&primes)?;
+        Ok(Search { input_phrase, pattern, essential, primes, primes_product, config })
+    }
+
+    /// Next, call fn [factors] via chaining.
+    pub fn add_cache(&'a self, cache: &'b Cache) -> SearchBuilder {
+        SearchBuilder::new(self, cache)
+    }
+}
+
+/// Internal state that may be mutated while performing a search.
+///
 /// Associate a product of primes with its word list from the
 /// dictionary file loaded at program start.
 ///
@@ -11,51 +62,58 @@ use crate::primes::Map;
 /// as references to those values.  Similarly for `results` being a
 /// vector as set of previous successful `accumulator` instances.
 ///
-/// Intentions for `accumulator` are that-- per instance-- it gets
-/// populated to completion of a single candidate phrase that is an
-/// anagram for the input phrase; otherwise, contents get discarded.
-#[rustfmt::skip]
-struct Search<'a> {
-    dictionary: &'a Map,               // keys (sorted) go in descending_keys
-    limit: usize,                      // keys.len()
-    descending_keys: Vec<&'a BigUint>, // high-to-low enforced by Constructor
-    accumulator: Vec<&'a Vec<String>>, // candidate words in incomplete phrase
-    dedup: BTreeMap<String, bool>,     // ensure unique phrase when complete
-    results: Candidate<'a>,            // final set of unique phrases
+/// The `accumulator` gets populated to completion of a single
+/// candidate phrase that is an anagram for the input phrase;
+/// otherwise, contents get discarded.
+pub struct SearchBuilder<'a, 'b> {
+    query: &'b Search<'a, 'b>,
+
+    /// Cache of word list and its metadata
+    dict: &'b Cache<'b>,
+
+    /// Candidate words in incomplete phrase
+    accumulator: Vec<&'b [String]>,
+    /// BTree to ensure unique phrases when complete
+    dedup: BTreeMap<String, bool>,
+    /// Final set of unique phrases from which post-processing may be done
+    results: Candidate<'b>,
 }
 
-/// Candidate phrases that are anagrams for the input phrase.
+/// Query results (but NOT named "result" so as to avoid confusion
+/// with [std::error::Result]).
+///
+/// Candidate phrases that are anagrams of the input phrase.
 /// These are candidates requiring further evaluation such as by a
-/// human to select or perhaps be verified by an MD5 checksum, etc.
-#[derive(Serialize, Debug)]
+/// human to select or be verified by NLP Parts-of-Speech tagging, etc.
+#[derive(Serialize, Debug, Clone)]
 #[serde(transparent)]
-pub struct Candidate<'a>(pub Vec<Vec<&'a Vec<String>>>);
+pub struct Candidate<'a>(pub Vec<Vec<&'a [String]>>);
 
-/// Iterate through list of remaining words within `map`, given that
-/// dictionary words within it have been selected as viable partial
-/// matches based upon prime number factorization.  After factoring
-/// each word's product from the input phrase, 1) check for exact
-/// match of remaining factor within `map` for a two word result; 2)
-/// test each word's product to see if it's a factor of the remaining
-/// factor within `map` for possible n-word result.
-pub fn brute_force<'a>(
-    primes_product: &BigUint, map: &'a Map, max_phrase_words: usize,
-) -> Candidate<'a> {
-    let mut search = Search::new(map);
-    search.factors(primes_product, 0, max_phrase_words);
-    search.results
-}
+impl<'a, 'b> SearchBuilder<'a, 'b>
+where
+    'a: 'b,
+{
+    /// Initiate recursion (albeit, limited iterations) with proper
+    /// starting values.
+    /// Usage:
+    /// ```ignore
+    /// let search = Search::query(...)?;
+    /// let (dict, _) = words::load_and_select(...)?;
+    /// let results = search.add_cache(&dict).brute_force();
+    /// ```
+    pub fn brute_force(&mut self) -> Candidate<'b> {
+        let initial_value = &self.query.primes_product;
+        let max_recursion = self.query.config.max_phrase_words;
+        self.factors(initial_value, 0, max_recursion);
+        self.results.to_owned()
+    }
 
-impl<'a, 'b> Search<'a> {
-    /// Constructor
-    fn new(map: &'a Map) -> Self {
-        let mut keys: Vec<&BigUint> = map.keys().collect();
-        keys.sort_by(|a, b| b.cmp(a));
-        assert!(keys[0] > keys[keys.len() - 1]);
-        Search {
-            dictionary: map,
-            limit: keys.len(),
-            descending_keys: keys,
+    /// Internal constructor.
+    /// See impl [Search] or fn [brute_force] instead.
+    fn new(query: &'b Search<'a, 'b>, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
+        SearchBuilder {
+            query,
+            dict: cache,
             accumulator: vec![],
             dedup: BTreeMap::new(),
             results: Candidate(vec![]),
@@ -64,10 +122,10 @@ impl<'a, 'b> Search<'a> {
 
     /// Find words in dictionary based upon prime number factorization.
     /// This is recursive with few iterations, albeit long iterations.
-    /// Params: `product` is primes product of input phrase, `map` is
-    /// filtered dictionary word list, `keys` are from map while
-    /// pre-sorted large to small, and `recursion_depth` is maximum number
-    /// of words to be allowed in candidate result phrase.
+    ///
+    /// Params: `product` is the remaining primes product of input
+    /// phrase, and `recursion_depth` is maximum number of words to be
+    /// allowed in candidate result phrase.
 
     // Rules of thumb for recursion-- think in terms of a state-machine
     // that handles:
@@ -76,19 +134,22 @@ impl<'a, 'b> Search<'a> {
     //  3. the general case
 
     // Implementation notes: Loading of dictionary word list tests for
-    // exact match of products, so logic here builds upon that assumption.
+    // exact match of products in CLI version, and similar lookup
+    // against cache in HTTP version, so logic here builds upon the
+    // ASSUMPTION that single word results have already been resolved.
 
-    // There's no Tail Call Optimizations as of Rust v1.35 [or 1.80) and
+    // There's no Tail Call Optimization as of Rust v1.35 [or 1.80) and
     // unlikely any time soon, so this violates conventional practice
     // by having other logic after a recursive call-- for readability.
-    fn factors(&mut self, product: &'b BigUint, start: usize, recursion_depth: usize) {
-        if start >= self.limit {
+    fn factors(&mut self, product: &BigUint, start: usize, recursion_depth: usize) {
+        let limit = self.dict.descending_keys.len();
+        if start >= limit {
             return;
         }
         let mut i = start;
-        while i != self.limit {
-            let test_product = self.descending_keys[i];
-            let words = self.dictionary.get(test_product).unwrap();
+        while i != limit {
+            let test_product = self.dict.descending_keys[i];
+            let words = self.dict.lexicon.get(test_product).unwrap();
             i += 1;
             if product == test_product {
                 // Exact match -- Execution only reaches here via recursion
@@ -100,7 +161,7 @@ impl<'a, 'b> Search<'a> {
                 // Found a factor that fits chain within accumulator.
                 // Optimization to possibly avoid recursion + loop:
                 let remainder = product / test_product;
-                if let Some(more_words) = self.dictionary.get(&remainder) {
+                if let Some(more_words) = self.dict.lexicon.get(&remainder) {
                     self.accumulator.push(words);
                     self.accumulator.push(more_words);
                     self.push_if_unique();

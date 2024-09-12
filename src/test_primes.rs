@@ -123,7 +123,7 @@ fn with_static_dictionary(input: &str, dictionary: &[&str], primes: &[u16]) {
     match primes_product(primes) {
         Ok(input_product) => {
             assert_eq!(product.to_biguint().unwrap(), input_product);
-            let mut map: Map = BTreeMap::new();
+            let mut map: PMap = BTreeMap::new();
             let mut wordlist: Vec<String> = vec![];
             for word in dictionary {
                 if let Ok(product) =
