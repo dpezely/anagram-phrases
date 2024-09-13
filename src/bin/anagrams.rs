@@ -28,9 +28,13 @@ struct Session {
     #[clap(name = "WORD", required = true)]
     input_phrase: Vec<String>,
 
-    /// Results must include this word.  Multiple allowed, or use quotes.
+    /// Results must include this word.  Multiple allowed.
     #[clap(short = 'i', long = "include", name = "REQUIRE")]
     must_include: Vec<String>,
+
+    /// Results must exclude this word.  Multiple allowed.
+    #[clap(short = 'x', long = "exclude", name = "OMIT")]
+    must_exclude: Vec<String>,
 
     #[command(flatten)]
     config: Config,
@@ -48,6 +52,7 @@ fn main() -> Result<()> {
         println!("filter based upon rules for lang={:?}", session.config.lang);
         println!("input phrase: {}", &session.input_phrase.join(" "));
         println!("must include: {}", &session.must_include.join(", "));
+        println!("must exclude: {}", &session.must_exclude.join(", "));
     }
     let max_phrase_words = match session.config.max_phrase_words {
         0 => std::cmp::min(session.input_phrase.len() + 1, 3),
@@ -63,6 +68,7 @@ fn main() -> Result<()> {
         &search.pattern,
         &search.essential,
         &search.primes_product,
+        &session.must_exclude,
     )?;
     if session.verbose {
         println!("pattern: {}", &search.pattern);
@@ -75,6 +81,7 @@ fn main() -> Result<()> {
         );
         println!("maximum number of words in result phrase: {max_phrase_words}");
     }
+    // Omit displaying excluded words because `results` are relative small search space
     if !singles.is_empty() {
         if session.must_include.is_empty() {
             if session.verbose {

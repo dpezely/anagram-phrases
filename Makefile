@@ -61,7 +61,7 @@ build:
 test:
 	@echo "Running with --help to confirm clap config:"
 	[ $(shell PATH=${PATH} \
-	  cargo run --bin anagram-phrases -- --help | wc -l) = 55 ]
+	  cargo run --bin anagram-phrases -- --help | wc -l) = 58 ]
 	PATH=${PATH} \
 	  cargo test
 

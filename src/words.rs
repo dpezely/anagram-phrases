@@ -73,6 +73,7 @@ const NEWLINE: u8 = 0x0A;
 /// See also: fn [preload_wordlist].
 pub fn load_and_select(
     config: &Config, pattern: &str, essential: &str, primes_product: &BigUint,
+    must_exclude: &[String],
 ) -> Result<(PMap, Vec<String>)> {
     let mut single_word_list = vec![];
     let mut map = PMap::new();
@@ -103,6 +104,9 @@ pub fn load_and_select(
                         continue;
                     }
                     if word == previous {
+                        continue;
+                    }
+                    if must_exclude.iter().any(|w| *w == word) {
                         continue;
                     }
                     if languages::filter(
