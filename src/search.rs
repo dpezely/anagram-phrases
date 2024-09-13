@@ -18,6 +18,8 @@ use crate::words::Cache;
 pub struct Search<'a, 'b> {
     /// Query terms (words) after parsing for whitespace
     pub input_phrase: &'a [String],
+    /// Results must include this set of words.
+    pub must_include: &'a [String],
 
     /// Set of unique characters extracted from query
     pub pattern: String,
@@ -37,14 +39,31 @@ impl<'a, 'b> Search<'a, 'b> {
     /// Computes metadata.
     /// Next, call fn [factors] via chaining.
     pub fn query(
-        input_phrase: &'a [String], config: &'b Config,
+        input_phrase: &'a [String], must_include: &'a [String], config: &'b Config,
     ) -> Result<Search<'a, 'b>> {
         let input_string = input_phrase.join("");
         let pattern = primes::extract_unique_chars(&input_string);
         let essential = primes::essential_chars(&input_string);
         let primes = primes::primes(&essential)?;
-        let primes_product = primes::primes_product(&primes)?;
-        Ok(Search { input_phrase, pattern, essential, primes, primes_product, config })
+        let mut primes_product = primes::primes_product(&primes)?;
+
+        if !must_include.is_empty() {
+            let s = must_include.join("");
+            let e = primes::essential_chars(&s);
+            let p = primes::primes(&e)?;
+            let denominator = primes::primes_product(&p)?;
+            primes_product /= denominator;
+        }
+
+        Ok(Search {
+            input_phrase,
+            must_include,
+            pattern,
+            essential,
+            primes,
+            primes_product,
+            config,
+        })
     }
 
     /// Next, call fn [factors] via chaining.
@@ -72,6 +91,7 @@ pub struct SearchBuilder<'a, 'b> {
     dict: &'b Cache<'b>,
 
     /// Candidate words in incomplete phrase
+    /// where inner array is list of words from dictionary with same product.
     accumulator: Vec<&'b [String]>,
     /// BTree to ensure unique phrases when complete
     dedup: BTreeMap<String, bool>,
@@ -111,10 +131,12 @@ where
     /// Internal constructor.
     /// See impl [Search] or fn [brute_force] instead.
     fn new(query: &'b Search<'a, 'b>, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
+        let accumulator =
+            if query.must_include.is_empty() { vec![] } else { vec![query.must_include] };
         SearchBuilder {
             query,
             dict: cache,
-            accumulator: vec![],
+            accumulator,
             dedup: BTreeMap::new(),
             results: Candidate(vec![]),
         }
@@ -176,13 +198,21 @@ where
                     self.factors(&remainder, i, recursion_depth - 1);
                     if start > 0 {
                         // Execution reached here via recursion
-                        self.accumulator.clear();
+                        if self.query.must_include.is_empty() {
+                            self.accumulator.clear();
+                        } else {
+                            self.accumulator = vec![self.query.must_include];
+                        }
                         return;
                     }
                 }
             }
         }
-        self.accumulator.clear();
+        if self.query.must_include.is_empty() {
+            self.accumulator.clear();
+        } else {
+            self.accumulator = vec![self.query.must_include];
+        }
     }
 
     /// De-duplicate candidate anagram results by sorting words within
@@ -204,10 +234,17 @@ where
             .join("");
         // Avoid the Entry API because this clears instead of updates.
         if self.dedup.contains_key(&string) {
-            self.accumulator.clear();
+            if self.query.must_include.is_empty() {
+                self.accumulator.clear();
+            } else {
+                self.accumulator = vec![self.query.must_include];
+            }
         } else {
             self.dedup.insert(string, true);
             self.results.0.push(self.accumulator.drain(..).collect());
+            if !self.query.must_include.is_empty() {
+                self.accumulator = vec![self.query.must_include];
+            }
         }
     }
 }

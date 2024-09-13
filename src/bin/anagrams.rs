@@ -28,6 +28,10 @@ struct Session {
     #[clap(name = "WORD", required = true)]
     input_phrase: Vec<String>,
 
+    /// Results must include this word.  Multiple allowed, or use quotes.
+    #[clap(short = 'i', long = "include", name = "REQUIRE")]
+    must_include: Vec<String>,
+
     #[command(flatten)]
     config: Config,
 
@@ -43,16 +47,17 @@ fn main() -> Result<()> {
         // TODO set env log level
         println!("filter based upon rules for lang={:?}", session.config.lang);
         println!("input phrase: {}", &session.input_phrase.join(" "));
+        println!("must include: {}", &session.must_include.join(", "));
     }
     let max_phrase_words = match session.config.max_phrase_words {
         0 => std::cmp::min(session.input_phrase.len() + 1, 3),
-        n if n < 3 => 3,
         n => n,
     };
     let session =
         Session { config: Config { max_phrase_words, ..session.config }, ..session };
 
-    let search = Search::query(&session.input_phrase, &session.config)?;
+    let search =
+        Search::query(&session.input_phrase, &session.must_include, &session.config)?;
     let (dict, singles) = words::load_and_select(
         &session.config,
         &search.pattern,
@@ -71,39 +76,49 @@ fn main() -> Result<()> {
         println!("maximum number of words in result phrase: {max_phrase_words}");
     }
     if !singles.is_empty() {
-        if session.verbose {
-            println!("\nCandidate single words:\n");
+        if session.must_include.is_empty() {
+            if session.verbose {
+                println!("\nCandidate single words:\n");
+            }
+            println!("{:?}\n", singles);
+        } else {
+            let mut phrases: Vec<Vec<String>> = Vec::with_capacity(singles.len());
+            for s in singles {
+                let mut p: Vec<String> =
+                    Vec::with_capacity(session.must_include.len() + 1);
+                p.push(s);
+                for word in session.must_include.iter() {
+                    p.push(word.clone());
+                }
+                phrases.push(p);
+            }
+            if session.verbose {
+                println!("\nCandidate single words with included phrase:\n");
+            }
+            println!("{:?}", phrases);
         }
-        println!("{:?}", singles);
     }
     // When max words is exactly one (a transposition, not anagram/phrase),
     // it would have been found above while loading dictionary.
-    if session.config.max_phrase_words != 1 {
+    if session.config.max_phrase_words > 1 {
         let cache = words::Cache::init(&dict);
         let results = search.add_cache(&cache).brute_force();
         let results = results.0; // unpack tuple struct, Candidate
         if session.verbose {
-            println!("\nCandidate phrases:\n");
+            println!("\nCandidate phrases:\nResults={}", results.len());
         }
-        if session.verbose {
-            println!("Results={}", results.len());
-        }
-        for terms in &results {
-            if terms.len() == 2 {
-                println!("{:?}", terms);
+        let mut count = 0;
+        for n in 2..=session.config.max_phrase_words {
+            for terms in &results {
+                if terms.len() == n {
+                    println!("{:?}", terms);
+                    count += 1;
+                }
             }
-        }
-        println!();
-        for terms in &results {
-            if terms.len() == 3 {
-                println!("{:?}", terms);
+            if count == results.len() {
+                break;
             }
-        }
-        println!();
-        for terms in &results {
-            if terms.len() > 3 {
-                println!("{:?}", terms);
-            }
+            println!();
         }
     }
     Ok(())

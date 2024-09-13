@@ -61,12 +61,16 @@ build:
 test:
 	@echo "Running with --help to confirm clap config:"
 	[ $(shell PATH=${PATH} \
-	  cargo run --bin anagram-phrases -- --help | wc -l) = 52 ]
+	  cargo run --bin anagram-phrases -- --help | wc -l) = 55 ]
 	PATH=${PATH} \
 	  cargo test
 
+# Allow warnings from Nightly Clippy, but deny from stable
 .PHONY: clippy
 clippy:
+	PATH=${PATH} \
+	  cargo +nightly clippy -Zunstable-options \
+	    --no-deps --all-targets --all-features
 	PATH=${PATH} \
 	  cargo clippy --no-deps --all-targets --all-features -- -D warnings
 
