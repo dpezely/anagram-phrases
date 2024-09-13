@@ -66,8 +66,12 @@ impl<'a, 'b> Search<'a, 'b> {
         })
     }
 
-    /// Next, call fn [factors] via chaining.
-    pub fn add_cache(&'a self, cache: &'b Cache) -> SearchBuilder {
+    /// Add reference to word list and its metadata.
+    ///
+    /// The parameter is the value returned by fn [Cache::init].
+    ///
+    /// Next, call fn [SearchBuilder::factors] via chaining.
+    pub fn add_cache(&'a self, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
         SearchBuilder::new(self, cache)
     }
 }
@@ -99,12 +103,33 @@ pub struct SearchBuilder<'a, 'b> {
     results: Candidate<'b>,
 }
 
+#[derive(Debug, Default)]
+enum State {
+    /// No match found, and no partial match to discard
+    #[default]
+    Unchanged,
+    /// Word(s) found that fit current phrase, but anagram is incomplete
+    Incomplete,
+    /// Word found which matchs query, thereby rendering a complete anagram
+    Complete,
+    /// Multiple words found that match query as a complete anagram (special case)
+    CompoundComplete,
+    /// Discard the incomplete phrase
+    Reject,
+}
+
 /// Query results (but NOT named "result" so as to avoid confusion
 /// with [std::error::Result]).
 ///
 /// Candidate phrases that are anagrams of the input phrase.
+///
+/// This represents a vector of phrases, each phrase constructed as a
+/// vector of arrays of strings.  The innermost array may contain
+/// multiple words, each with an identical primes product.
+///
 /// These are candidates requiring further evaluation such as by a
 /// human to select or be verified by NLP Parts-of-Speech tagging, etc.
+/// and not guaranteed to be idiomatic for any natural language.
 #[derive(Serialize, Debug, Clone)]
 #[serde(transparent)]
 pub struct Candidate<'a>(pub Vec<Vec<&'a [String]>>);
@@ -113,8 +138,12 @@ impl<'a, 'b> SearchBuilder<'a, 'b>
 where
     'a: 'b,
 {
-    /// Initiate recursion (albeit, limited iterations) with proper
-    /// starting values.
+    /// Initiate recursion (albeit, limited depth but long iterations).
+    ///
+    /// Exercises *all* *combinations* of words from dictionary to fit
+    /// within a single phrase such that the product of its set of
+    /// prime numbers match that of the query.
+    ///
     /// Usage:
     /// ```ignore
     /// let search = Search::query(...)?;
@@ -128,7 +157,7 @@ where
         self.results.to_owned()
     }
 
-    /// Internal constructor.
+    /// Internal constructor intended to be used by [Search].
     /// See impl [Search] or fn [brute_force] instead.
     fn new(query: &'b Search<'a, 'b>, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
         let accumulator =
@@ -146,8 +175,10 @@ where
     /// This is recursive with few iterations, albeit long iterations.
     ///
     /// Params: `product` is the remaining primes product of input
-    /// phrase, and `recursion_depth` is maximum number of words to be
-    /// allowed in candidate result phrase.
+    /// phrase, `start` is the offset of where to continue within the
+    /// dictionary to avoid duplicate effort, and `recursion_depth` is
+    /// maximum number of words to be allowed in candidate result
+    /// phrase.
 
     // Rules of thumb for recursion-- think in terms of a state-machine
     // that handles:
@@ -163,49 +194,23 @@ where
     // There's no Tail Call Optimization as of Rust v1.35 [or 1.80) and
     // unlikely any time soon, so this violates conventional practice
     // by having other logic after a recursive call-- for readability.
-    fn factors(&mut self, product: &BigUint, start: usize, recursion_depth: usize) {
+    // This may be considered "corecursion" due to harvesting
+    // intermediate results added after v0.4.0, which changed to mutual
+    // recursion for that revision and in preparation for concurrency.
+    fn factors(
+        &mut self, product: &BigUint, start: usize, recursion_depth: usize,
+    ) -> State {
         let limit = self.dict.descending_keys.len();
         if start >= limit {
-            return;
+            return State::Reject;
         }
-        let mut i = start;
-        while i != limit {
-            let test_product = self.dict.descending_keys[i];
-            let words = self.dict.lexicon.get(test_product).unwrap();
-            i += 1;
-            if product == test_product {
-                // Exact match -- Execution only reaches here via recursion
-                self.accumulator.push(words);
-                // Success: only one key in `dictionary` could match `product`
-                self.push_if_unique();
-                return;
-            } else if product > test_product && product % test_product == BigUint::ZERO {
-                // Found a factor that fits chain within accumulator.
-                // Optimization to possibly avoid recursion + loop:
-                let remainder = product / test_product;
-                if let Some(more_words) = self.dict.lexicon.get(&remainder) {
-                    self.accumulator.push(words);
-                    self.accumulator.push(more_words);
-                    self.push_if_unique();
-                    if start > 0 {
-                        // Execution reached here via recursion
-                        return;
-                    }
-                } else if recursion_depth > 1 {
-                    // already checked 1 word remainder
-                    self.accumulator.push(words);
-                    // Avoid processing same entries; `i` already incremented
-                    self.factors(&remainder, i, recursion_depth - 1);
-                    if start > 0 {
-                        // Execution reached here via recursion
-                        if self.query.must_include.is_empty() {
-                            self.accumulator.clear();
-                        } else {
-                            self.accumulator = vec![self.query.must_include];
-                        }
-                        return;
-                    }
-                }
+        for i in start..limit {
+            match self.factor_i(i, product, start, recursion_depth) {
+                State::Unchanged => continue,
+                State::Incomplete => continue,
+                state @ State::Reject => return state,
+                state @ State::Complete => return state,
+                state @ State::CompoundComplete => return state,
             }
         }
         if self.query.must_include.is_empty() {
@@ -213,6 +218,57 @@ where
         } else {
             self.accumulator = vec![self.query.must_include];
         }
+        State::Reject
+    }
+
+    fn factor_i(
+        &mut self, i: usize, product: &BigUint, start: usize, recursion_depth: usize,
+    ) -> State {
+        let test_product = self.dict.descending_keys[i];
+        if let Some(words) = self.dict.lexicon.get(test_product) {
+            if product == test_product {
+                // Exact match -- Execution only reaches here via recursion [CLI version]
+                self.accumulator.push(words);
+                // Success: only one key in `dictionary` could match `product`
+                self.push_if_unique();
+                return State::Complete;
+            } else if product > test_product && product % test_product == BigUint::ZERO {
+                // Found a factor that fits chain within accumulator.
+                self.accumulator.push(words);
+                // Optimization to avoid recursion + loop when another word matches
+                let remainder = product / test_product;
+                if let Some(more_words) = self.dict.lexicon.get(&remainder) {
+                    self.accumulator.push(more_words);
+                    self.push_if_unique();
+                    if start > 0 {
+                        // Execution reached here via recursion, so pop the stack
+                        return State::CompoundComplete;
+                    }
+                    return State::Incomplete;
+                } else if recursion_depth > 0 {
+                    // Already checked 1 word remainder
+                    if i == self.dict.descending_keys.len() {
+                        // Reached limit of this traversal, so avoid recursive call
+                        return State::Reject;
+                    } else {
+                        // Iterate with next dict entry, so increment `start`
+                        let state =
+                            self.factors(&remainder, start + 1, recursion_depth - 1);
+                        if start > 0 {
+                            // Execution reached here via recursion, so pop the stack
+                            if self.query.must_include.is_empty() {
+                                self.accumulator.clear();
+                            } else {
+                                self.accumulator = vec![self.query.must_include];
+                            }
+                            return state;
+                        }
+                        return State::Incomplete;
+                    }
+                }
+            }
+        }
+        State::Unchanged
     }
 
     /// De-duplicate candidate anagram results by sorting words within
