@@ -30,7 +30,9 @@ pub enum Language {
     FR, // French, Français; Latin-1
 }
 
-/// Complements `Available` such that its `EN` for English may be
+/// Region portion of "LANG" environment variable.
+///
+/// Complements [Language] such that its `EN` for English may be
 /// further distinguished between UK, US, Canada, etc.  This
 /// corresponds to the second component of LANG environment variable;
 /// e.g., in Bash, `export LANG="en-US"`
@@ -53,6 +55,8 @@ pub enum Encoding {
     Iso_8859_1,
 }
 
+/// Words allowed to start with uppercase.
+///
 /// Associate what words are acceptable when otherwise bypassing
 /// words containing upper case letters.  e.g., "I" isn't a proper
 /// noun/name in English, so it should be allowed.
@@ -66,11 +70,16 @@ pub static UPCASE: LazyLock<BTreeMap<Language, Vec<&'static str>>> =
         tree
     });
 
+/// Words allowed to be short.
+///
 /// Associate what words are acceptable when otherwise bypassing
 /// short word.  For instance, "a" is short but should be allowed
 /// for English, and "y" is a conjunction in Spanish.
 /// Anything else should be rejected when the filter is applied to
 /// minimize noise within results.
+///
+/// Values are [str] (rather than [char]) in case a natural language
+/// needs to filter more than single character words.
 pub static SHORT: LazyLock<BTreeMap<Language, Vec<&'static str>>> = LazyLock::new(|| {
     use Language::*;
     let mut tree = BTreeMap::new();
@@ -118,6 +127,7 @@ impl From<&str> for Region {
 }
 
 /// Language-specific filtering for words from dictionary.
+///
 /// Supply `SHORT_WORDS` and `UPCASE_WORDS` for `short_words` and
 /// `upcase_words`, respectively, for words that are *allowed*.
 /// Boolean parameters take precedence over supplied word lists.
@@ -152,8 +162,9 @@ pub fn filter(
     }
 }
 
-/// Parse `lang` as value of "LANG" environment variable,
-/// such as "en_CA.UTF-8" or "en_US". Case is insignificant.
+/// Parse `lang` as value of "LANG" environment variable.
+///
+/// For example, "en_CA.UTF-8" or "en_US".  Case is insignificant.
 /// (Pre-processing required if used with value from HTTP header,
 /// "Accept-Language" to strip weighting.)
 pub fn parse_lang(lang: &str) -> (Language, Region) {

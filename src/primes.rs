@@ -46,6 +46,8 @@ const PRIMES: [u16; 200] =
      1097,1103,1109,1117,1123,1129,1151,1153,1163,1171,1181,1187,1193,
      1201,1213,1217,1223];
 
+/// Filter (accept or reject) the specified word.
+///
 /// For a given `word` from a natural language dictionary (different
 /// from the "input" phrase to be resolved), evaluate that word based
 /// upon: `pattern` is the set of unique characters extracted from the
