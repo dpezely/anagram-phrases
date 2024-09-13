@@ -165,7 +165,7 @@ pub fn filter(
 /// Parse `lang` as value of "LANG" environment variable.
 ///
 /// For example, "en_CA.UTF-8" or "en_US".  Case is insignificant.
-/// (Pre-processing required if used with value from HTTP header,
+/// (Preprocessing required if used with value from HTTP header,
 /// "Accept-Language" to strip weighting.)
 pub fn parse_lang(lang: &str) -> (Language, Region) {
     let mut language = Language::Any;

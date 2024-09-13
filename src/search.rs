@@ -110,7 +110,7 @@ enum State {
     Unchanged,
     /// Word(s) found that fit current phrase, but anagram is incomplete
     Incomplete,
-    /// Word found which matchs query, thereby rendering a complete anagram
+    /// Word found which matches query, thereby rendering a complete anagram
     Complete,
     /// Multiple words found that match query as a complete anagram (special case)
     CompoundComplete,
@@ -194,7 +194,7 @@ where
     // There's no Tail Call Optimization as of Rust v1.35 [or 1.80) and
     // unlikely any time soon, so this violates conventional practice
     // by having other logic after a recursive call-- for readability.
-    // This may be considered "corecursion" due to harvesting
+    // This may be considered "co-recursion" due to harvesting
     // intermediate results added after v0.4.0, which changed to mutual
     // recursion for that revision and in preparation for concurrency.
     fn factors(

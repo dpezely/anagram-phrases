@@ -156,7 +156,7 @@ pub fn load_and_select(
 /// is suitable for persistent HTTP service.
 ///
 /// Params with same name have identical semantics as [load_and_select].
-/// Note: consider caching with `short` ane `upcase` enabled, but
+/// Note: consider caching with `short` and `upcase` enabled, but
 /// apply same filtering per query based upon user preferences.
 ///
 /// Returns [PMap] containing mathematical product of primes
