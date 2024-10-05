@@ -18,7 +18,7 @@ static DEFAULT_DICT_FILES: LazyLock<Vec<PathBuf>> =
 /// one per natural language supported.
 // For augmenting this struct with CLI args, see:
 // https://docs.rs/clap/latest/clap/_derive/index.html#mixing-builder-and-derive-apis
-#[derive(Debug, Parser)]
+#[derive(Debug, Default, Parser)]
 #[clap(max_term_width = 80)]
 pub struct Config {
     /// Specify 2 letter ISO code for natural language such as EN for

@@ -1,6 +1,7 @@
 //! Load word lists with or without filtering.
 
 use num_bigint::BigUint;
+// TODO use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -18,7 +19,8 @@ use crate::primes::{self, PMap};
 pub struct Cache<'a> {
     /// HashMap of prime to phrase
     pub lexicon: &'a PMap,
-    /// Index into `dictionary` sorted by its keys (primes) high-to-low
+    /// Index into `lexicon` sorted by its keys (primes) high-to-low
+    /// because [std::collections;:BTreeMap] lacks Range support
     pub descending_keys: Vec<&'a BigUint>,
 }
 
@@ -26,23 +28,34 @@ impl<'a> Cache<'a> {
     /// Constructor for use after loading word list.
     /// Unnecessary when discovering only transpositions (single word
     /// to single word anagrams).
+    ///
     /// Generates internal metadata necessary for subsequent searches.
+    ///
     /// ```ignore
-    /// let search = Search::query(&input_phrase, &config)?;
+    /// let search = Search::query(input_phrase, &[], &config).unwrap();
     /// let (dict, _singles) =
-    ///   words::load_and_select(&config, &pattern, &essential, &primes_product)?;
-    /// let cache = Cache::init(&dict);
+    ///    load_and_select(&config, &search.pattern, &search.essential,
+    ///                    &search.primes_product, &[])?;
+    /// let cache = words::Cache::init(&dict);
+    /// let mut builder = search.add_cache(&cache);
+    /// let mut anagrams = builder.brute_force();
     /// ```
     pub fn init(map: &PMap) -> Cache {
-        let mut keys: Vec<&BigUint> = map.keys().collect();
-        keys.sort_by(|a, b| b.cmp(a));
+        let mut descending_keys: Vec<&BigUint> = map.keys().collect();
+        descending_keys.sort_by(|&a, &b| b.cmp(a));
+
+        // TODO when BTreeSet::range() supports BigUint:
+        // let mut keys = BTreeSet::<&BigUint>::new();
+        // for &p in descending_keys.iter() {
+        //     keys.insert(p);
+        // }
 
         // TODO: Apply modified sequence of primes to accommodate
         // letter frequency within locale specific $LANG, such that
         // more common words will be found first; e.g., ETAOIN SRHLDCU
         // in EN-US from https://norvig.com/mayzner.html
 
-        Cache { lexicon: map, descending_keys: keys }
+        Cache { lexicon: map, descending_keys }
     }
 }
 
@@ -125,10 +138,19 @@ pub fn load_and_select(
                             // This dictionary word matches exactly.
                             single_word_list.push(word.to_string());
                         } else {
-                            // Store remaining words in look-up table:
+                            // Store remaining words in look-up table as sorted list:
+                            #[allow(clippy::vec_init_then_push)]
                             map.entry(product)
-                                .or_insert_with(|| Vec::with_capacity(1))
-                                .push(word.to_string());
+                                .and_modify(|e| {
+                                    e.push(word.to_string());
+                                    e.sort_unstable();
+                                })
+                                .or_insert_with(|| {
+                                    // Anticipate lots of words with unique products
+                                    let mut v = Vec::with_capacity(1);
+                                    v.push(word.to_string());
+                                    v
+                                });
                         }
                     }
                     std::mem::swap(&mut previous, &mut word);

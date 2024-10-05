@@ -20,8 +20,9 @@ use std::sync::LazyLock;
 use crate::error::AnagramError;
 
 /// Languages currently supported to varying degrees... Pull requests welcome
-#[derive(Deserialize, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Deserialize, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Language {
+    #[default]
     Any,
     // Only necessary if something has been added to `UPCASE` or `SHORT`.
     // Please keep this list sorted alphabetically.

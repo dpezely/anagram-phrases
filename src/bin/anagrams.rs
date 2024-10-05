@@ -109,8 +109,8 @@ fn main() -> Result<()> {
     // it would have been found above while loading dictionary.
     if session.config.max_phrase_words > 1 {
         let cache = words::Cache::init(&dict);
-        let results = search.add_cache(&cache).brute_force();
-        let results = results.0; // unpack tuple struct, Candidate
+        let mut builder = search.add_cache(&cache);
+        let results = builder.brute_force();
         if session.verbose {
             println!("\nCandidate phrases:\nResults={}", results.len());
         }

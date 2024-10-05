@@ -1,4 +1,5 @@
 extern crate num_bigint;
+extern crate num_integer;
 extern crate num_traits;
 
 #[cfg(feature = "external-hasher")]
@@ -9,9 +10,11 @@ pub mod error;
 pub mod languages;
 pub mod primes;
 pub mod search;
-pub mod session;
+mod session;
 #[cfg(test)]
-pub mod test_languages;
+mod test_languages;
 #[cfg(test)]
-pub mod test_primes;
+mod test_primes;
+#[cfg(test)]
+mod test_search;
 pub mod words;

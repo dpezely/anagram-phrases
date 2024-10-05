@@ -223,8 +223,9 @@ primes rather than a *set* because duplicate characters must be tracked.
 
 
 Selection of the final phrase may be performed by visual inspection for one
-that makes sense to the human.  (Any additional filtering of results, for
-example, based upon its MD5 hash is beyond scope of this software.)
+that makes sense to the human or being idiomatic within a given natural
+language.  (Any additional filtering of results, for example, based upon NLP
+Parts-of-Speech tagging is beyond scope of this software.)
 
 ## Possible Future Enhancements
 
