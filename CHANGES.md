@@ -1,6 +1,55 @@
 Change Log
 ==========
 
+## v0.5.0 - Correctness
+
+This release breaks backwards compatibility, overhauls the library and
+promotes the CLI from hackathon/demonstration app to offer proper utility.
+
+Original implementation of the primes factorization algorithm was done at
+a Vancouver Rust Meetup based upon the topic of "anagrams" suggested by a
+member during that same meeting, and practically no tuning occurred beyond
+de-duplication (061ebc5 as fifth commit) until this release (31st commit).
+
+Like database schema and the *fallacy* of "schema-less," states *always*
+exist; therefore, keep Finite State Machines (FSM) explicit for anything
+that matters.  Then when in doubt, revert to a well-known stable state;
+e.g., Erlang's "Let it crash" motto.
+
+Following my own advice elevates this from toy/throwaway project 5yrs later.
+
+New features:
+
+- Library contains nearly all functionality/plumbing
+- CLI versus HTTP service, etc. each intended merely as a facade/porcelain
+- CLI options: specify words that *must exist* and/or be *omitted* within
+  each phrase of results
+
+Behavior changes / breaking changes:
+
+- RESULTS MAY DIFFER because of corrections to v0.1.0 - 0.4.0 core algorithm
+    + As a phrase accumulates each word, branching now occurs
+    + Each branch can find different chains of words comprising an anagram
+- Public and private APIs:
+    + `Session` obsolete: its structs and impls migrated to `search::Search`
+      because some fields were redundant with `Options` in `bin/anagrams.rs`,
+      and computed values became internal state of `search::SearchBuilder`
+    + Explicit internal (private) `State` tracks progress of accumulated
+      phrases until `State:;Complete` representing an anagram
+- CLI arguments `--short` (-s) and `--upcase` (-u) specify *inclusion*
+    + Previously, args with same name indicated the opposite
+- Obsoletes `GitLAB.com/dpezely/native-android-kotlin-rust`
+    + by same author as proof of concept; maybe it helped someone out there
+    + 'twas early days of one Rust library across CLI, httpd, mobile apps
+- Upgrades `clap` to 4.5, thus removes legacy `structopt`, leverages `flatten`
+- Requires Rust 1.80 or newer because `LazyLock` supersedes `lazy-static`
+
+Fixes:
+
+- Honor specified maximum number of words in results
+- Successful anagrams can contain repeated words
+- Many more anagrams can be found compared to early versions
+
 ## v0.4.0 - Edition 2021 maintenance release
 
 - Minor updates to wording within README
