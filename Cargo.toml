@@ -1,6 +1,6 @@
 [package]
 name = "anagram-phrases"
-version = "0.4.0"
+version = "0.5.0"
 description = "Phrase-based anagram solver using prime number factorization"
 keywords = ["anagram", "primes"]
 repository = "https://github.com/dpezely/anagram-phrases"
