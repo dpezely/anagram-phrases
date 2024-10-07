@@ -1,6 +1,23 @@
 Change Log
 ==========
 
+
+## Overview
+
+Being pre-1.0, backwards compatibility with older versions may break, as is
+the case with v0.5 compared to earlier versions.
+
+As of v0.5.0, performance remains constrained due to *lack* of concurrency,
+and number of anagrams found significantly increased since v0.4.
+
+Those factors-- compounded by processing long words and/or long phrases--
+can lead to long running time.
+
+Compared to versions prior to v0.5.0, an increase of over `80x` has been
+found for four word phrases comprised of twenty letters.  However the time
+for that same query increased from a few seconds to nearly thirteen minutes
+on the same machine.
+
 ## v0.5.0 - Correctness
 
 This release breaks backwards compatibility, overhauls the library and
@@ -11,7 +28,7 @@ a Vancouver Rust Meetup based upon the topic of "anagrams" suggested by a
 member during that same meeting, and practically no tuning occurred beyond
 de-duplication (061ebc5 as fifth commit) until this release (31st commit).
 
-Like database schema and the *fallacy* of "schema-less," states *always*
+Like database schema and the *fallacy* of "schemaless," states *always*
 exist; therefore, keep Finite State Machines (FSM) explicit for anything
 that matters.  Then when in doubt, revert to a well-known stable state;
 e.g., Erlang's "Let it crash" motto.

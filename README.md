@@ -36,7 +36,7 @@ interchangeably.
 
 This is a command-line utility for handling a single query per run.
 
-Compile using [Rust](http://rust-lang.org/) Edition 2018 or newer, which is
+Compile using [Rust](http://rust-lang.org/) 1.80 or newer, which is
 available for BSD Unix, Linux, macOS, Windows and other operating systems:
 
     cargo build --release
@@ -49,12 +49,10 @@ Usage on Debian/Ubuntu and similar flavors of Linux:
 
     anagram-phrases --help
 
-    anagram-phrases "word or phrase"
+    anagram-phrases word or phrase
 
-Words from your query get excluded from results, but to keep them as
-possible words, simply eliminate spaces within the original phrase:
-
-    anagram-phrases wordorphrase
+(As of v0.5.0, phrases may be quoted or unquoted.  Words from the query are
+no longer excluded from results.)
 
 When using a dictionary word list other than `/usr/share/dict/words`:
 
@@ -68,8 +66,8 @@ accommodates it, such as Bash.
 
 A dictionary word list is **required but not supplied**!
 
-Ones compatible with `ispell` or GNU `aspell` or similar should work without
-modification.  On Debian/Ubuntu based Linux systems, look in
+Word lists compatible with `ispell` or GNU `aspell` or similar should work
+without modification.  On Debian/Ubuntu based Linux systems, look in
 `/etc/dictionaries-common/` for where the symbolic link of `words` points,
 which is likely `/usr/share/dict/`.  On macOS and FreeBSD, see
 `/usr/share/dict/words` and other files within that subdirectory.
@@ -79,17 +77,32 @@ and trailing white-space as well as non-alphabetic characters.  The
 definition of *alphabetic* characters used here comes from the Unicode
 implementation within the Rust standard library.
 
+See [CHANGES.md](./CHANGES.md) for implementation details across versions.
+
+## Testing
+
+See [third-party/README.md](third-party/README.md) for accommodating tests
+consistently across all platforms.
+
+    cd third-party/
+    ./download.sh
+
+    cd ..
+    cargo test
+
+There is also a [PowerShell script](third-party/download.ps1) for
+downloading via Microsoft Windows.  (TODO: untested as of 2024-10-07)
+
 ## Building & Running Using Docker
 
 To avoid any contamination of your laptop/workstation's host OS, build and
 optionally run using Docker containers.
 
-On Debian/Ubuntu, install using:
+Install the official release of
+[Docker Engine](https://docs.docker.com/engine/install/), or on
+Debian/Ubuntu, run:
 
     sudo apt-get install docker.io
-
-Or [install](https://download.docker.com/mac/stable/Docker.dmg) for [macOS](https://docs.docker.com/docker-for-mac/docker-toolbox/);
-[install](https://docs.docker.com/docker-for-windows/install/) for Windows.
 
 Build: (may require prefixing with `sudo`)
 
@@ -117,21 +130,6 @@ some systems.
 See also:
 [Dockerfile reference](https://docs.docker.com/engine/reference/builder/).
 
-## Developing
-
-If expanding upon this code, it may be helpful to first apply a
-[patch](./debug-search-rs.diff).
-
-This patch adds extremely verbose logging.
-(i.e., *who wants to drink from the fire hose?*)
-
-It may be applied from the shell by running:
-
-    patch -p1 < debug-search-rs.diff
-
-The `patch` command is generally available on BSD Unix, Linux, macOS and
-Cygwin for Windows.
-
 ## Background
 
 The basic principle builds upon prime numbers as exclusive factors of a
@@ -144,8 +142,8 @@ These values map to each letter of the alphabet assigned to a unique prime
 number, and all characters of the input phrase are included-- yes,
 duplicates too.
 
-By convention, we use primes in sequence: A=2, B=3, C=5, to Z=101 for Latin
-scripts such as used by English, but those mappings are arbitrary and
+For simplicity, consider primes in sequence: A=2, B=3, C=5, to Z=101 for
+Latin scripts such as used by English, but those mappings are arbitrary and
 required only to be unique.
 
 For each run, the program creates a subset of the dictionary word list by
@@ -201,18 +199,7 @@ dictionary.
 > pruned search space (`N`) and phrase length (`M`).  This has been the case
 > when N begins above 300k but reduced within N=30 to N=4000 for M=2 and M=4
 > word English phrases.
->
-> Running time for those have been well *under one second* on a single core
-> of i7-8550U CPU with laptop-grade SSD storage for a 25 character, 4 word
-> input phrase.
->
-> Be sure to **build with `--release` flag**, first.
 
-
-In addition, this implementation leverages many opportunities for local
-optimizations when searching.  One optimization spares an occasional loop
-iteration and short-circuits based upon commutative properties of
-multiplication.
 
 Duplicates get removed from preliminary result with small performance
 penalty of another ephemeral BTreeMap, where keys are words of a
@@ -311,6 +298,8 @@ Optional dictionaries offer triple the number of words:
 
 A comprehensive set of word lists for European languages are available as [ispell-dictionaries](https://www.cs.hmc.edu/~geoff/ispell-dictionaries.html).
 Files may need to be decompressed first.
+
+See http://wordlist.aspell.net which accommodates custom word lists.
 
 Additional dictionaries may be loaded on Debian or Ubuntu flavors of Linux
 by running:

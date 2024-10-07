@@ -2,16 +2,22 @@
 
 # We need to use the Rust build image, because
 # we need the Rust compile and Cargo tooling
-FROM rust:1.36
+FROM rust:1.81
+
+ENV CARGO_BIN="~/.cargo/bin"
+ENV PATH="${CARGO_BIN}:${PATH}"
 
 # Create dummy project used only for dependencies
-RUN USER=root cargo new --bin anagram-phrases
+RUN cargo new --bin anagram-phrases
 WORKDIR /anagram-phrases
 
 # Copy *only* manifest files, for making an image with just dependencies
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
+
 RUN touch src/lib.rs
+RUN mkdir src/bin/
+RUN echo 'fn main() {}' > src/bin/anagrams.rs
 
 # Build dependencies
 RUN cargo build --lib --release

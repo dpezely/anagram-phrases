@@ -89,13 +89,12 @@ release:
 # (Avoid cross-compiling on macOS with Linux target, which is
 # problematic due to third-party toolchains like crosstool-ng
 # abandoning macOS as of 2018-11-26.)
-# For most use cases, you only need the minimal "Docker Desktop for Mac".
-# https://docs.docker.com/docker-for-mac/docker-toolbox/
+# For most use cases, you only need the community edition of "Docker Engine".
 # See also .dockerignore file.
 .PHONY: production-release
 production-release:
 	@which docker || \
-	  echo 'Install: https://download.docker.com/mac/stable/Docker.dmg'
+	  echo 'Install Docker Engine: https://docs.docker.com/engine/install/'
 	docker build -f build-only.Dockerfile -t anagram-phrases-build .
 	[ -d target ] || \
 	  mkdir -p target
