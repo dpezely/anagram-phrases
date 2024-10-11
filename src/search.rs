@@ -10,7 +10,7 @@ use crate::primes;
 use crate::words::Cache;
 
 /// Values computed from each query.
-/// See also: [Session] and bin/anagrams.rs CLI Options.
+/// See also: bin/anagrams.rs CLI Options.
 ///
 /// NOTE: Multiple languages within same run-time are accommodated as
 /// an implementation detail of each app; e.g., CLI app filters while
@@ -39,7 +39,19 @@ pub struct Search<'a, 'b> {
 impl<'a, 'b> Search<'a, 'b> {
     /// Fallible constructor where search query is supplied.
     /// Computes metadata.
-    /// Next, call fn [factors] via chaining.
+    ///
+    /// Usage:
+    /// ```ignore
+    /// let search = Search::query(...)?;
+    /// let (dict, _) = words::load_and_select(...)?;
+    /// let cache = words::Cache::init(&dict);
+    /// let mut builder = search.add_cache(&cache);
+    /// let mut anagrams = builder.brute_force();
+    /// ```
+    ///
+    /// Enrichment occurs after calling this constructor due to values
+    /// computed by it may be necessary when populating [Cache].
+    /// i.e., the "builder" pattern; see: [SearchBuilder]
     pub fn query(
         input_phrase: &'a [String], must_include: &'a [String], config: &'b Config,
     ) -> Result<Search<'a, 'b>> {
@@ -71,14 +83,12 @@ impl<'a, 'b> Search<'a, 'b> {
     /// Add reference to word list and its metadata.
     ///
     /// The parameter is the value returned by fn [Cache::init].
-    ///
-    /// Next, call fn [SearchBuilder::factors] via chaining.
     pub fn add_cache(&'a self, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
         SearchBuilder::new(self, cache)
     }
 }
 
-/// Augment an instance of [Search] with [words::Cache]
+/// Augment an instance of [Search] with [Cache].
 #[derive(Clone)]
 pub struct SearchBuilder<'a, 'b> {
     query: &'b Search<'a, 'b>,
@@ -104,15 +114,6 @@ where
     ///
     /// The search space can be pruned in advance when word list gets
     /// loaded on-demand per query ensuring fewer iterations here.
-    ///
-    /// Usage:
-    /// ```ignore
-    /// let search = Search::query(...)?;
-    /// let (dict, _) = words::load_and_select(...)?;
-    /// let cache = words::Cache::init(&dict);
-    /// let mut builder = search.add_cache(&cache);
-    /// let mut anagrams = builder.brute_force();
-    /// ```
     pub fn brute_force(&'c mut self) -> Vec<Vec<&'b [String]>> {
         let task = Task::new(self);
         let mut results = Candidate::new();

@@ -44,12 +44,6 @@ impl<'a> Cache<'a> {
         let mut descending_keys: Vec<&BigUint> = map.keys().collect();
         descending_keys.sort_by(|&a, &b| b.cmp(a));
 
-        // TODO when BTreeSet::range() supports BigUint:
-        // let mut keys = BTreeSet::<&BigUint>::new();
-        // for &p in descending_keys.iter() {
-        //     keys.insert(p);
-        // }
-
         // TODO: Apply modified sequence of primes to accommodate
         // letter frequency within locale specific $LANG, such that
         // more common words will be found first; e.g., ETAOIN SRHLDCU

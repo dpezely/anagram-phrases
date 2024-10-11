@@ -105,7 +105,7 @@ fn main() -> Result<()> {
             println!("{:?}", phrases);
         }
     }
-    // When max words is exactly one (a transposition, not anagram/phrase),
+    // When `max_phrase_words` is exactly one (a transposition, not anagram/phrase),
     // it would have been found above while loading dictionary.
     if session.config.max_phrase_words > 1 {
         let cache = words::Cache::init(&dict);
