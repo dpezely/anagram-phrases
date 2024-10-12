@@ -118,36 +118,34 @@ where
         let task = Task::new(self);
         let mut results = Candidate::new();
         let limit = self.dict.descending_keys.len();
-        if task.index < limit {
-            let mut deque = VecDeque::<Task<'a, 'b>>::new();
-            for i in task.index..limit {
-                let state = task.clone().factor_i(i);
-                match state {
-                    State::Unchanged(task) => deque.push_back(task),
-                    State::Reject => {}
-                    State::Complete((task, mut anagram)) => {
-                        deque.push_back(task);
-                        results.push_if_unique(&mut anagram.phrase);
-                    }
-                    State::Branch((task, new_task)) => {
-                        deque.push_back(task);
-                        deque.push_back(new_task);
-                    }
+        let mut deque = VecDeque::<Task<'a, 'b>>::new();
+        for i in 0..limit {
+            let state = task.clone().factor_i(i);
+            match state {
+                State::Unchanged(task) => deque.push_back(task),
+                State::Reject => {}
+                State::Complete((task, mut anagram)) => {
+                    deque.push_back(task);
+                    results.push_if_unique(&mut anagram.phrase);
+                }
+                State::Branch((task, new_task)) => {
+                    deque.push_back(task);
+                    deque.push_back(new_task);
                 }
             }
-            while let Some(task) = deque.pop_front() {
-                let state = task.clone().factor_i(task.index);
-                match state {
-                    State::Unchanged(task) => deque.push_front(task),
-                    State::Reject => {}
-                    State::Complete((task, mut anagram)) => {
-                        deque.push_front(task);
-                        results.push_if_unique(&mut anagram.phrase);
-                    }
-                    State::Branch((task, new_task)) => {
-                        deque.push_front(task);
-                        deque.push_front(new_task);
-                    }
+        }
+        while let Some(task) = deque.pop_front() {
+            let state = task.clone().factor_i(task.index);
+            match state {
+                State::Unchanged(task) => deque.push_front(task),
+                State::Reject => {}
+                State::Complete((task, mut anagram)) => {
+                    deque.push_front(task);
+                    results.push_if_unique(&mut anagram.phrase);
+                }
+                State::Branch((task, new_task)) => {
+                    deque.push_front(task);
+                    deque.push_front(new_task);
                 }
             }
         }
