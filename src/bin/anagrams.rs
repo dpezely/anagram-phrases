@@ -55,7 +55,7 @@ fn main() -> Result<()> {
         println!("must exclude: {}", &session.must_exclude.join(", "));
     }
     let max_phrase_words = match session.config.max_phrase_words {
-        0 => std::cmp::min(session.input_phrase.len() + 1, 3),
+        0 => std::cmp::max(session.input_phrase.len() + 1, 3),
         n => n,
     };
     let session =
