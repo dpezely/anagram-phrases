@@ -10,7 +10,6 @@ pub mod error;
 pub mod languages;
 pub mod primes;
 pub mod search;
-mod session;
 #[cfg(test)]
 mod test_languages;
 #[cfg(test)]
