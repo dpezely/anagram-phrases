@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::string::ToString;
+use std::sync::mpsc::channel;
 use std::sync::LazyLock;
 
 use crate::config::Config;
@@ -28,7 +29,7 @@ fn en_au_new_south_wales_two_words() {
         vec![vec!["newel"], vec!["washout's", "washouts"]],
         vec![vec!["newel's", "newels"], vec!["washout"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, false);
 }
 
 // Running with --ignored or --include-ignored will run these tests.
@@ -72,7 +73,7 @@ fn en_au_new_south_wales_three_words() {
         vec![vec!["anew", "wane", "wean"], vec!["slowest"], vec!["uh"]],
         vec![vec!["anew", "wane", "wean"], vec!["soul"], vec!["thew's", "thews", "whets"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, true);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, true, false);
 }
 
 /// One of the inaugural provinces of Canada was Nova Scotia.
@@ -92,7 +93,7 @@ fn en_ca_nova_scotia_two_words() {
         vec![vec!["ovation"], vec!["sac"]],
         vec![vec!["so"], vec!["vacation"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, false);
 }
 
 #[test]
@@ -238,7 +239,7 @@ fn en_ca_nova_scotia_three_words() {
         vec![vec!["sac"], vec!["too"], vec!["vain"]],
         vec![vec!["so"], vec!["vacation"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, false);
 }
 
 /// The first state registered after founding USA was Delaware.
@@ -264,7 +265,7 @@ fn en_us_delaware_two_words() {
         vec![vec!["dale", "deal", "lade", "lead"], vec!["ware", "wear"]],
         vec![vec!["dare", "dear", "read"], vec!["wale", "weal"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, false);
 }
 
 #[test]
@@ -340,7 +341,7 @@ fn en_us_delaware_three_words() {
         vec![vec!["ed"], vec!["la"], vec!["ware", "wear"]],
         vec![vec!["ewe", "wee"], vec!["la"], vec!["rad"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, false);
 }
 
 // Running with --ignored or --include-ignored will run these tests.
@@ -530,12 +531,12 @@ fn canary_three_words() {
         vec![vec!["icicle"], vec!["manana"], vec!["rayon"]],
         vec![vec!["manacle"], vec!["ocarina"], vec!["yin"]],
     ];
-    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false);
+    anagrams(max_phrase_words, input_phrase, word_list_files, expected, false, true);
 }
 
 fn anagrams(
     max_phrase_words: usize, input_phrase: &str, word_list_files: &[PathBuf],
-    expected: Vec<Vec<Vec<&str>>>, elided: bool,
+    expected: Vec<Vec<Vec<&str>>>, elided: bool, streaming: bool,
 ) {
     for f in word_list_files {
         assert!(std::fs::exists(f).expect("Word list file not found"));
@@ -561,22 +562,44 @@ fn anagrams(
     )
     .unwrap();
     let cache = words::Cache::init(&dict);
-    let mut builder = search.add_cache(&cache);
+
+    let (tx, rx) = channel();
+    let builder = if streaming {
+        search.enrich(&cache, Some(tx))
+    } else {
+        search.enrich(&cache, None)
+    };
+
     let mut anagrams = builder.brute_force();
-    anagrams.sort_unstable_by(
-        |a, b| {
-            if a[0] == b[0] {
-                a[1].cmp(b[1])
-            } else {
-                a[0].cmp(b[0])
-            }
-        },
-    );
+    anagrams.sort_unstable_by(sort_by_first_words);
     dbg!(&[expected.len(), anagrams.len()]);
     if elided {
         let limit = expected.len();
         assert_eq!(expected, anagrams[..limit], "expected (elided) vs actual (sliced)");
     } else {
         assert_eq!(expected, anagrams, "expected vs actual");
+    }
+
+    if streaming {
+        let mut streamed = vec![];
+        for unique in rx {
+            if let Some(phrase) = unique {
+                streamed.push(phrase);
+            } else {
+                break;
+            }
+        }
+        dbg!(&[expected.len(), streamed.len()]);
+        streamed.sort_unstable_by(sort_by_first_words);
+        assert_eq!(expected, streamed, "expected vs streamed");
+    }
+}
+
+#[allow(clippy::ptr_arg)]
+fn sort_by_first_words(a: &Vec<Vec<String>>, b: &Vec<Vec<String>>) -> std::cmp::Ordering {
+    if a[0] == b[0] {
+        a[1].cmp(&b[1])
+    } else {
+        a[0].cmp(&b[0])
     }
 }

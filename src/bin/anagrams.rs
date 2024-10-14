@@ -11,19 +11,21 @@ extern crate anagram_phrases;
 
 use clap::Parser;
 use std::convert::From;
+use std::path::PathBuf;
+use std::sync::mpsc::channel;
 
 use anagram_phrases::config::Config;
 use anagram_phrases::error::Result;
+use anagram_phrases::json;
 use anagram_phrases::search::Search;
 use anagram_phrases::words;
 
-/// Query and runtime options.
-///
-/// See also: [crate::search::Search].
+/// Find transpositions (single words) and anagrams (phrases).
+// See also: [Search].
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80)]
 struct Session {
-    /// One or more words to be resolved as transposition or anagram.
+    /// One or more words to be resolved as transpositions or anagrams.
     /// Only ASCII and ISO-8859-* character ranges supported as UTF-8.
     #[clap(name = "WORD", required = true)]
     input_phrase: Vec<String>,
@@ -36,15 +38,24 @@ struct Session {
     #[clap(short = 'x', long = "exclude", name = "OMIT")]
     must_exclude: Vec<String>,
 
+    /// Disable stdout stream of unsorted results as each is found.
+    #[clap(short, long, required = false)]
+    quiet: bool,
+
+    /// Write sorted results as JSON to specified path and filename.
+    #[clap(short, long, name = "FILE.json")]
+    json: Option<PathBuf>,
+
     #[command(flatten)]
     config: Config,
 
     /// Display additional status information
-    #[clap(short = 'v', long = "verbose")]
+    #[clap(short, long, overrides_with = "quiet")]
     verbose: bool,
 }
 
 /// Resolve a single anagram phrase or word from command-line parameters.
+// TODO refactor main() into smaller fn.
 fn main() -> Result<()> {
     let session = Session::parse();
     if session.verbose {
@@ -81,16 +92,17 @@ fn main() -> Result<()> {
         );
         println!("maximum number of words in result phrase: {max_phrase_words}");
     }
-    // Omit displaying excluded words because `results` are relative small search space
     if !singles.is_empty() {
         if session.must_include.is_empty() {
             if session.verbose {
                 println!("\nCandidate single words:\n");
             }
-            println!("{:?}\n", singles);
+            if !session.quiet {
+                println!("{:?}\n", singles);
+            }
         } else {
             let mut phrases: Vec<Vec<String>> = Vec::with_capacity(singles.len());
-            for s in singles {
+            for s in singles.clone() {
                 let mut p: Vec<String> =
                     Vec::with_capacity(session.must_include.len() + 1);
                 p.push(s);
@@ -102,30 +114,65 @@ fn main() -> Result<()> {
             if session.verbose {
                 println!("\nCandidate single words with included phrase:\n");
             }
-            println!("{:?}", phrases);
+            if !session.quiet {
+                println!("{:?}", phrases);
+            }
         }
     }
     // When `max_phrase_words` is exactly one (a transposition, not anagram/phrase),
     // it would have been found above while loading dictionary.
     if session.config.max_phrase_words > 1 {
         let cache = words::Cache::init(&dict);
-        let mut builder = search.add_cache(&cache);
-        let results = builder.brute_force();
+        let (tx, rx) = channel();
+        let builder = if session.quiet {
+            search.enrich(&cache, None)
+        } else {
+            search.enrich(&cache, Some(tx))
+        };
+        let results = std::thread::scope(move |s| -> Vec<Vec<Vec<String>>> {
+            if !session.quiet {
+                // Scoped threads get joined implicitly which guarantees completion
+                s.spawn(move || {
+                    for unique in rx {
+                        if let Some(phrase) = unique {
+                            // Even though Rust 1.80's debug output here appears
+                            // like JSON, avoid relying upon that coincidence.
+                            match serde_json::to_string(&phrase) {
+                                Ok(s) => println!("{s}"),
+                                Err(e) => println!("{phrase:?} // {e}"),
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                });
+            }
+            builder.brute_force()
+        });
+
         if session.verbose {
             println!("\nCandidate phrases:\nResults={}", results.len());
-        }
-        let mut count = 0;
-        for n in 2..=session.config.max_phrase_words {
-            for terms in &results {
-                if terms.len() == n {
-                    println!("{:?}", terms);
-                    count += 1;
+            let mut count = 0;
+            for n in 2..=session.config.max_phrase_words {
+                for terms in &results {
+                    if terms.len() == n {
+                        println!("{:?}", terms);
+                        count += 1;
+                    }
                 }
+                if count == results.len() {
+                    break;
+                }
+                println!();
             }
-            if count == results.len() {
-                break;
-            }
-            println!();
+        }
+
+        if let Some(filepath) = session.json {
+            let max = session.config.max_phrase_words;
+            json::write(&filepath, max, &singles, &results).map_err(|e| {
+                eprintln!("Unable to create JSON file {filepath:#?}, {e:?}");
+                e
+            })?;
         }
     }
     Ok(())

@@ -1,24 +1,65 @@
 Change Log
 ==========
 
-
 ## Overview
 
 Being pre-1.0, backwards compatibility with older versions may break, as is
 the case with v0.5 compared to earlier versions.
 
 As of v0.5.0, performance remains constrained due to *lack* of concurrency,
-and number of anagrams found significantly increased since v0.4.
+and number of anagrams found significantly increased since v0.4.  Minimal
+concurrency is introduced with v0.6 for streaming results to the CLI but
+designed specifically for future WebSocket behavior.  (Concurrent workers
+are yet to come.)
 
 Those factors-- compounded by processing long words and/or long phrases--
 can lead to long running time.
 
 Compared to versions prior to v0.5.0, an increase of over `80x` has been
-found for four word phrases comprised of twenty letters.  However the time
-for that same query increased from a few seconds to nearly thirteen minutes
-on the same machine.
+found for four word phrases comprised of twenty letters.  The duration for
+that same query increased from a few seconds to nearly thirteen minutes on
+the same machine.  However, as of v0.6, meaningful results are streamed as
+each anagram is found, and the vast majority of the time is exhaustively
+confirming that no further phrases can be found.
 
-## v0.5.0 - Correctness
+There probably are algorithmic optimizations that can be applied which would
+greatly reduce duration of that final stage.
+
+## v0.6.0 - Streaming Results & Writing JSON
+
+This release introduces concurrency but only for producing and consuming
+streaming results as each new anagram (or transposition) is found.  These
+are baby steps towards functionality accommodating HTTP service as a client
+of this library; e.g., for its future release to utilize WebSockets in a
+meaningful way.  (More meaningful concurrency across all processors is
+planned.)
+
+New features:
+
+- API of `SearchBuilder` accommodates an MPSC channel for streaming results
+  + Each phrase gets sent as `Option::Some` via channel as it is found
+  + Receiving `Option::None` indicates the listener may exit
+  + Channel messages may get wrapped within an different Enum before v1.0
+    to accommodate services such as WebSocket
+- CLI adds `--json` (`-j`) option for writing sorted results in JSON format
+  + Isolates single word results ("transpositions" actually) from phrases
+    (proper "anagrams")
+  + Each is sorted alphabetically
+  + Anagrams are further sorted by number of words in phrase
+- CLI adds `--quiet` (`-q`) flag to omit streaming results as each is found
+  + Verbose and quiet modes compete, and the last flag specified wins
+
+Fixes:
+
+- Honor *CLI default* for advertised number of words in results
+  + v0.5 resolved a programming error only within the search algorithm
+  + This error was within the CLI porcelain
+- More meaningful `--help` messages
+  + Message banner comes from doc-comment, which has been revised
+  + Behavior changes and CLI parameters changed in v0.5 didn't correspond
+    correctly with help text that was being displayed
+
+## v0.5.0 - Correctness of Algorithm
 
 This release breaks backwards compatibility, overhauls the library and
 promotes the CLI from hackathon/demonstration app to offer proper utility.
@@ -64,6 +105,7 @@ Behavior changes / breaking changes:
 Fixes:
 
 - Honor specified maximum number of words in results
+  + Edit: there were 2 defects, and this addressed only one; see v0.6.0
 - Successful anagrams can contain repeated words
 - Many more anagrams can be found compared to early versions
 

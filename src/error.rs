@@ -34,4 +34,7 @@ pub enum AnagramError {
 
     #[error("The requested language is not implemented")]
     LangNotImplemented,
+
+    #[error("Unable to generate JSON payload")]
+    JsonPayload(#[from] serde_json::Error),
 }

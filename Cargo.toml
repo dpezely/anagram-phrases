@@ -1,6 +1,6 @@
 [package]
 name = "anagram-phrases"
-version = "0.5.0"
+version = "0.6.0"
 description = "Phrase-based anagram solver using prime number factorization"
 keywords = ["anagram", "primes"]
 repository = "https://github.com/dpezely/anagram-phrases"
@@ -32,6 +32,7 @@ num-bigint = "0.4"
 num-integer = "0.1"
 num-traits = "0.2"
 serde = {version="1.0", features=["derive"]}
+serde_json = "1.0"
 thiserror = "1.0"
 
 [lib]

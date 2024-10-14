@@ -32,44 +32,38 @@ pub struct Config {
     )]
     pub lang: CliLanguage,
 
-    /// Dictionary files containing one word per line as plain-text.
-    /// Files suitable for `ispell` or GNU `aspell` are compatible.
-    #[clap(short='d', long="dict", name = "PATH",
+    /// Dictionary file containing one word per line as plain-text.
+    /// Some files suitable for `ispell` or GNU `aspell` are compatible.
+    #[clap(short, long="dict", name = "PATH",
            default_values=DEFAULT_DICT_FILES.iter().map(|p| p.as_os_str()))]
     pub dict_file_paths: Vec<PathBuf>,
 
-    /// Specify dictionary encoding; currently only UTF-8, ISO-8859-1
-    #[clap(
-        short = 'e',
-        long = "encoding",
-        ignore_case = true,
-        name = "X",
-        default_value = "UTF_8"
-    )]
+    /// Specify encoding of dictionary/word list file.
+    #[clap(short, long, ignore_case = true, name = "X", default_value = "UTF_8")]
     pub encoding: CliEncoding,
 
     /// Defaults to one more than number of words within input phrase
     /// and a minimum of 3 words.
-    #[clap(short = 'm', long = "max", default_value = "0", name = "N")]
+    #[clap(short, long = "max", default_value = "0", name = "N")]
     pub max_phrase_words: usize,
 
     /// Include dictionary words containing single letters, which may
-    /// help avoid noisy results.  However, specify `--lang` allowing
-    /// exceptions of `a` for English, `y` for Spanish, etc.
-    // v1.0: name changed and value inverted since v0.4.0 `Options`
+    /// contribute to noisy results.  Alternatively, specify `--lang`
+    /// allowing exceptions of `a` for English, `y` for Spanish, etc.
+    // v0.5: name changed and value inverted since v0.4.0 `Options`
     #[clap(short = 's', long = "short")]
     pub include_short: bool,
 
     /// Include dictionary words containing uppercase, which indicates
-    /// being a proper names.  However, specify `--lang` to allow "I" as
-    /// an exception for English; etc.
-    // v1.0: name changed and value inverted since v0.4.0 `Options`
+    /// being a proper name.  Alternatively, specify `--lang` to allow
+    /// "I" as an exception for English; etc.
+    // v0.5: name changed and value inverted since v0.4.0 `Options`
     #[clap(short = 'u', long = "upcase")]
     pub include_upcase: bool,
 }
 
 // Adding clap::ValueEnum to language::Language and language::Encoding
-// smelled like a leaky abstration because that's part of our library,
+// smelled like a leaky abstraction because that's part of our library,
 // which shouldn't need to use `clap`.  Therefore, CliLanguage and
 // CliEncoding exist as type aliases here.
 

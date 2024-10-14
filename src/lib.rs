@@ -7,6 +7,7 @@ extern crate char_seq;
 
 pub mod config;
 pub mod error;
+pub mod json;
 pub mod languages;
 pub mod primes;
 pub mod search;

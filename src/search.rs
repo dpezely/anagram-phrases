@@ -2,7 +2,8 @@ use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::identities::One;
 use serde::Serialize;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{btree_map::Entry, BTreeMap, VecDeque};
+use std::sync::mpsc::Sender;
 
 use crate::config::Config;
 use crate::error::Result;
@@ -16,7 +17,7 @@ use crate::words::Cache;
 /// an implementation detail of each app; e.g., CLI app filters while
 /// loading a transient dictionary, but HTTP service caches each dict
 /// and then filters per query.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Search<'a, 'b> {
     /// Query terms (words) after parsing for whitespace
     pub input_phrase: &'a [String],
@@ -36,7 +37,10 @@ pub struct Search<'a, 'b> {
     pub config: &'b Config,
 }
 
-impl<'a, 'b> Search<'a, 'b> {
+impl<'a, 'b, 'c> Search<'a, 'b>
+where
+    'c: 'b,
+{
     /// Fallible constructor where search query is supplied.
     /// Computes metadata.
     ///
@@ -45,13 +49,13 @@ impl<'a, 'b> Search<'a, 'b> {
     /// let search = Search::query(...)?;
     /// let (dict, _) = words::load_and_select(...)?;
     /// let cache = words::Cache::init(&dict);
-    /// let mut builder = search.add_cache(&cache);
+    /// let mut builder = search.enrich(&cache, None);
     /// let mut anagrams = builder.brute_force();
     /// ```
     ///
     /// Enrichment occurs after calling this constructor due to values
     /// computed by it may be necessary when populating [Cache].
-    /// i.e., the "builder" pattern; see: [SearchBuilder]
+    /// i.e., the "builder" pattern; see: [enrich] and [SearchBuilder].
     pub fn query(
         input_phrase: &'a [String], must_include: &'a [String], config: &'b Config,
     ) -> Result<Search<'a, 'b>> {
@@ -80,45 +84,76 @@ impl<'a, 'b> Search<'a, 'b> {
         })
     }
 
+    /// Enrich [Search] prior to exercising query.  Add reference to
+    /// word list and its metadata. Optionally, add [Sender] side of
+    /// MPSC channel.
+    ///
+    /// The `cache` parameter is the value returned by fn [Cache::init].
+    pub fn enrich(
+        &'c self, cache: &'b Cache, tx: Option<Sender<UniqueAnagram>>,
+    ) -> SearchBuilder<'a, 'b> {
+        SearchBuilder { query: self, dict: cache, tx }
+    }
+
     /// Add reference to word list and its metadata.
     ///
-    /// The parameter is the value returned by fn [Cache::init].
-    pub fn add_cache(&'a self, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
-        SearchBuilder::new(self, cache)
+    /// The `cache`  parameter is the value returned by fn [Cache::init].
+    ///
+    /// See also fn [enrich].
+    pub fn add_cache(&'c self, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
+        SearchBuilder { query: self, dict: cache, tx: None }
     }
 }
 
-/// Augment an instance of [Search] with [Cache].
+/// Envelope for sending each new unique anagram as it is found.
+/// Follows same semantics of how [Iterator] uses [Option].
+///
+/// Closing the [Sender] should be sufficient signal for listener to
+/// end, but `for msg in rx {}` proved otherwise.
+pub type UniqueAnagram = Option<Vec<Vec<String>>>;
+
+/// Augment an instance of [Search] with [Cache] and channel [Sender].
 #[derive(Clone)]
 pub struct SearchBuilder<'a, 'b> {
+    /// Includes `input_phrase` and parameters
     query: &'b Search<'a, 'b>,
 
     /// Cache of word list and its metadata
     dict: &'b Cache<'b>,
+
+    /// Transmits stream of unique anagram phrases as each is found
+    tx: Option<Sender<UniqueAnagram>>,
 }
 
 impl<'a, 'b, 'c> SearchBuilder<'a, 'b>
 where
     'c: 'b,
 {
-    /// Internal constructor intended to be used by [Search].
+    /// Constructor intended to be used by [Search].
     ///
     /// See impl [Search] or fn [brute_force] instead.
-    fn new(query: &'b Search<'a, 'b>, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
-        SearchBuilder { query, dict: cache }
+    // The real reason why this constructor exists is keeping lifetime
+    // *names* consistent across the various structs and impl blocks;
+    // i.e., 'c. Otherwise, it's simple enough instantiating struct inline.
+    pub fn new(
+        query: &'b Search<'a, 'b>, cache: &'b Cache, tx: Option<Sender<UniqueAnagram>>,
+    ) -> SearchBuilder<'a, 'b> {
+        SearchBuilder { query, dict: cache, tx }
     }
 
-    /// Exercise *all* *combinations* of words from dictionary to fit
-    /// within a single phrase such that the product of its set of
+    /// Exercise combinations and permutations of dictionary words to
+    /// fit within a single phrase such that the product of its set of
     /// prime numbers match that of the query.
     ///
     /// The search space can be pruned in advance when word list gets
     /// loaded on-demand per query ensuring fewer iterations here.
-    pub fn brute_force(&'c mut self) -> Vec<Vec<&'b [String]>> {
+    // TODO divvy into non-overlapping chunks and dispach concurrent workers
+    pub fn brute_force(&'c self) -> Vec<Vec<Vec<String>>> {
         let task = Task::new(self);
         let mut results = Candidate::new();
         let limit = self.dict.descending_keys.len();
-        let mut deque = VecDeque::<Task<'a, 'b>>::new();
+        let mut deque = VecDeque::<Task<'a, 'b>>::with_capacity(limit * 2);
+        // TODO allocates new accumulaters, each with one word spanning entire dict
         for i in 0..limit {
             let state = task.clone().factor_i(i);
             match state {
@@ -126,7 +161,13 @@ where
                 State::Reject => {}
                 State::Complete((task, mut anagram)) => {
                     deque.push_back(task);
-                    results.push_if_unique(&mut anagram.phrase);
+                    if let Some(p) = results.push_if_unique(&mut anagram.phrase) {
+                        if let Some(tx) = &self.tx {
+                            if tx.send(Some(p)).is_err() {
+                                break;
+                            }
+                        }
+                    }
                 }
                 State::Branch((task, new_task)) => {
                     deque.push_back(task);
@@ -134,6 +175,7 @@ where
                 }
             }
         }
+        // Complete each accumulated phrase from above, or reject it.
         while let Some(task) = deque.pop_front() {
             let state = task.clone().factor_i(task.index);
             match state {
@@ -141,13 +183,22 @@ where
                 State::Reject => {}
                 State::Complete((task, mut anagram)) => {
                     deque.push_front(task);
-                    results.push_if_unique(&mut anagram.phrase);
+                    if let Some(p) = results.push_if_unique(&mut anagram.phrase) {
+                        if let Some(tx) = &self.tx {
+                            if tx.send(Some(p)).is_err() {
+                                break;
+                            }
+                        }
+                    }
                 }
                 State::Branch((task, new_task)) => {
                     deque.push_front(task);
                     deque.push_front(new_task);
                 }
             }
+        }
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(None);
         }
         results.phrases()
     }
@@ -158,8 +209,8 @@ where
 /// These are results of [Search::query] (but NOT named "result" so as
 /// to avoid confusion with [std::error::Result]).
 ///
-/// Each phrase is constructed as a vector of arrays of strings.  The
-/// innermost array may contain multiple words, each with an identical
+/// Each phrase is constructed as nested vectors of strings.  The
+/// innermost [Vec] may contain multiple words, each with an identical
 /// primes product.
 ///
 /// These are candidates requiring further evaluation such as by a
@@ -167,31 +218,46 @@ where
 /// and not guaranteed to be idiomatic for any natural language.
 #[derive(Serialize, Debug)]
 #[serde(transparent)]
-struct Candidate<'a>(BTreeMap<String, Vec<&'a [String]>>);
+struct Candidate(BTreeMap<String, Vec<Vec<String>>>);
 
-impl<'a> Candidate<'a> {
+impl<'a> Candidate {
     /// Constructor
     fn new() -> Self {
         Candidate(BTreeMap::new())
     }
 
-    /// Return the resulting anagrams, which consumes `self`
-    fn phrases(&mut self) -> Vec<Vec<&'a [String]>> {
+    /// Extract and return resulting anagrams, which consumes `self`
+    fn phrases(&mut self) -> Vec<Vec<Vec<String>>> {
         std::mem::take(&mut self.0).into_values().collect()
     }
 
     /// De-duplicate anagram `phrase` (accumulator) by sorting words
-    /// contained within it and pushing that onto `self.phrases` such
-    /// that there will be one instance of a phrase within results,
-    /// regardless of word order.
+    /// contained within it and pushing that onto a [BTreeMap]
+    /// ensuring one instance of a phrase within results, regardless
+    /// of word order.
+    ///
+    /// This is where *references* to dictionary words become
+    /// materialized to [String] for reduced memory consumption while
+    /// finding phrases, albeit at marginal computation cost here.
     ///
     /// SIDE-EFFECTS: sorts and may consume `phrase`, and may update `self`.
-    fn push_if_unique(&mut self, phrase: &mut Vec<&'a [String]>) {
+    ///
+    /// Return value indicates whether phrase was unique or not, and if so,
+    /// supplies [UniqueAnagram] value suitable for channel [Sender].
+    fn push_if_unique(&mut self, phrase: &mut [&'a [String]]) -> UniqueAnagram {
         // Arrange (first) words within phrase in alphabetical order:
         phrase.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
         let string: String =
-            phrase.iter().map(|&x| x[0].as_str()).collect::<Vec<&str>>().join(" ");
-        self.0.entry(string).or_insert(std::mem::take(phrase));
+            phrase.iter().map(|&x| x[0].to_string()).collect::<Vec<String>>().join(" ");
+        let entry = self.0.entry(string);
+        match entry {
+            Entry::Vacant(e) => {
+                let phrase: Vec<Vec<String>> = phrase.iter().map(|&w| w.into()).collect();
+                e.insert(phrase.clone());
+                Some(phrase)
+            }
+            Entry::Occupied(_) => None,
+        }
     }
 }
 
@@ -199,18 +265,18 @@ impl<'a> Candidate<'a> {
 #[derive(Clone)]
 enum State<'a, 'b> {
     /// No match found, and no partial match to discard.
-    /// Therefore, increment task's `index` before iterating.
+    /// Therefore, increment [Task]'s `index` before iterating.
     Unchanged(Task<'a, 'b>),
-    /// Discard the incomplete phrase within [Task::accumulator]
+    /// Discard the incomplete phrase
     Reject,
     /// Word found which matches query, thereby rendering a complete anagram.
     /// When max_words accommodates, however, continue searching
     /// with existing task's base phrase.
-    /// Tuple ordering is: existing task, completed anagram.
+    /// Tuple ordering is: existing [Task], completed [Anagram].
     Complete((Task<'a, 'b>, Anagram<'a, 'b>)),
     /// Enqueue a new task, which branches (gets cloned) from current
-    /// task, which addresses multiple phrases with identical word.
-    /// Tuple ordering of tasks is: existing, new.
+    /// task, which addresses multiple phrases with an identical word.
+    /// Tuple ordering of [Task]s is: existing, new.
     Branch((Task<'a, 'b>, Task<'a, 'b>)),
 }
 
@@ -244,22 +310,28 @@ impl<'a, 'b> std::fmt::Display for State<'a, 'b> {
     }
 }
 
+/// A single unit of work.
+///
+/// This represents a single iteration of the main loop within the
+/// algorithm to find anagrams, but its state and stack may be
+/// decoupled such as for concurrency.
 #[derive(Clone)]
 struct Task<'a, 'b> {
-    /// Original query, because multiple queries can exist within same queue.
+    /// Original query, because multiple queries potentially exist in same queue.
     search: &'b SearchBuilder<'a, 'b>,
     /// Product of primes for query reduced by factoring primes for each word
     /// added to `accumulator`.  Begins equal to [Search::primes_product].
     target: BigUint,
-    /// Initial value of `i` from fn [factor] loop when this task was scheduled:
+    /// Initial value of `i` from fn [SearchBuilder::brute_force] loop when
+    /// this task was scheduled:
     /// For recursion, each new branch begins by repeating `i` for `start`
     /// which addresses cases with repeated words in same phrase.
     index: usize,
-    /// Limit length of phrase within `accumulator`
+    /// Countdown to limit length of phrase within `accumulator`
     max_words: usize,
-    /// Candidate words in incomplete phrase where inner array is list
+    /// Candidate words in incomplete phrase where inner [Vec] is set
     /// of words from dictionary with same product.  This gets sorted
-    /// and then moved to become a [Candidate] for final results.
+    /// and taken to become [Candidate] for final results.
     accumulator: Vec<&'b [String]>,
     /// Product of all primes within `accumulator` (or default value: 1)
     acc_product: BigUint,
@@ -368,7 +440,7 @@ struct Anagram<'a, 'b> {
     search: &'b SearchBuilder<'a, 'b>,
     /// Completed anagram phrase where inner array is list
     /// of words from dictionary with same product.  This gets sorted
-    /// and then moved to become a [Candidate] for final results.
+    /// and taken to become a [Candidate] for final results.
     phrase: Vec<&'b [String]>,
 }
 

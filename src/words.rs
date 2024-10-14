@@ -1,7 +1,6 @@
 //! Load word lists with or without filtering.
 
 use num_bigint::BigUint;
-// TODO use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -37,7 +36,7 @@ impl<'a> Cache<'a> {
     ///    load_and_select(&config, &search.pattern, &search.essential,
     ///                    &search.primes_product, &[])?;
     /// let cache = words::Cache::init(&dict);
-    /// let mut builder = search.add_cache(&cache);
+    /// let mut builder = search.enrich(&cache, None);
     /// let mut anagrams = builder.brute_force();
     /// ```
     pub fn init(map: &PMap) -> Cache {
