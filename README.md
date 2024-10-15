@@ -39,11 +39,12 @@ This is a command-line utility for handling a single query per run.
 Compile using [Rust](http://rust-lang.org/) 1.80 or newer, which is
 available for BSD Unix, Linux, macOS, Windows and other operating systems:
 
-    cargo build --release
+    cargo build --release --bin anagram-phrases
 
 Install its one executable somewhere convenient:
 
     sudo cp target/release/anagram-phrases /usr/local/bin/
+    sudo chmod a+x /usr/local/bin/anagram-phrases
 
 Usage on Debian/Ubuntu and similar flavors of Linux:
 
@@ -56,7 +57,7 @@ no longer excluded from results.)
 
 When using a dictionary word list other than `/usr/share/dict/words`:
 
-    anagram-phrases "word or phrase" -d /usr/share/dict/canadian-english-huge
+    anagram-phrases word or phrase -d /usr/share/dict/canadian-english-huge
 
 Multiple `-d file-path` options are allowed, and each file will be loaded in
 sequence specified.

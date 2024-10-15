@@ -59,6 +59,23 @@ Fixes:
   + Behavior changes and CLI parameters changed in v0.5 didn't correspond
     correctly with help text that was being displayed
 
+### Blocker For 1.0 Release
+
+Known defect with remedy applied; i.e., a bug and a hack:
+
+As noted in a `TODO` within [search.rs](src/search.rs), some runs take way
+too long since v0.5.0.  Unless specifying `-D` for max duration, it defaults
+to a reasonably short value accommodating older machines, but it's a hack.
+
+Full results arrive within a few seconds. (Finds 100% within those few
+seconds in casual testing on AMD Ryzen 5 7535U, which is a 2022 laptop-grade
+CPU.)  However, some runs take 10, 20+ minutes to complete.
+
+Limiting elapsed time is pragmatic but a hack nonetheless.  After fixing
+this defect, the feature will be kept for forthcoming HTTP service workers.
+
+Deeper investigation will happen when schedule permits.
+
 ## v0.5.0 - Correctness of Algorithm
 
 This release breaks backwards compatibility, overhauls the library and

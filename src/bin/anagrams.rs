@@ -13,12 +13,19 @@ use clap::Parser;
 use std::convert::From;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
+use std::time::Duration;
 
 use anagram_phrases::config::Config;
 use anagram_phrases::error::Result;
 use anagram_phrases::json;
 use anagram_phrases::search::Search;
 use anagram_phrases::words;
+
+/// Default value when maximum number of words is NOT specified
+const MIN_WORDS: usize = 3;
+
+/// Minimum duration for queries to run in seconds
+const MIN_DURATION_SECONDS: u64 = 9;
 
 /// Find transpositions (single words) and anagrams (phrases).
 // See also: [Search].
@@ -29,6 +36,10 @@ struct Session {
     /// Only ASCII and ISO-8859-* character ranges supported as UTF-8.
     #[clap(name = "WORD", required = true)]
     input_phrase: Vec<String>,
+
+    /// Maximum duration allowed processing query in whole seconds.
+    #[clap(short = 'D', long = "duration", name = "SECONDS")]
+    max_duration: Option<u64>,
 
     /// Results must include this word.  Multiple allowed.
     #[clap(short = 'i', long = "include", name = "REQUIRE")]
@@ -41,6 +52,10 @@ struct Session {
     /// Disable stdout stream of unsorted results as each is found.
     #[clap(short, long, required = false)]
     quiet: bool,
+
+    /// Write sorted results as CSV to specified path and filename.
+    #[clap(short, long, name = "FILE.csv")]
+    csv: Option<PathBuf>,
 
     /// Write sorted results as JSON to specified path and filename.
     #[clap(short, long, name = "FILE.json")]
@@ -66,7 +81,7 @@ fn main() -> Result<()> {
         println!("must exclude: {}", &session.must_exclude.join(", "));
     }
     let max_phrase_words = match session.config.max_phrase_words {
-        0 => std::cmp::max(session.input_phrase.len() + 1, 3),
+        0 => std::cmp::max(session.input_phrase.len() + 1, MIN_WORDS),
         n => n,
     };
     let session =
@@ -124,10 +139,16 @@ fn main() -> Result<()> {
     if session.config.max_phrase_words > 1 {
         let cache = words::Cache::init(&dict);
         let (tx, rx) = channel();
-        let builder = if session.quiet {
-            search.enrich(&cache, None)
+        let duration = if let Some(d) = session.max_duration {
+            Some(Duration::new(std::cmp::max(d, MIN_DURATION_SECONDS), 0))
         } else {
-            search.enrich(&cache, Some(tx))
+            // TODO should be None; see search::SearchBuilder::brute_force()
+            Some(Duration::new(29, 0))
+        };
+        let builder = if session.quiet {
+            search.enrich(&cache, None, duration)
+        } else {
+            search.enrich(&cache, Some(tx), duration)
         };
         let results = std::thread::scope(move |s| -> Vec<Vec<Vec<String>>> {
             if !session.quiet {

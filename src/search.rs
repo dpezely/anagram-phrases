@@ -4,6 +4,7 @@ use num_traits::identities::One;
 use serde::Serialize;
 use std::collections::{btree_map::Entry, BTreeMap, VecDeque};
 use std::sync::mpsc::Sender;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::error::Result;
@@ -91,8 +92,9 @@ where
     /// The `cache` parameter is the value returned by fn [Cache::init].
     pub fn enrich(
         &'c self, cache: &'b Cache, tx: Option<Sender<UniqueAnagram>>,
+        max_duration: Option<Duration>,
     ) -> SearchBuilder<'a, 'b> {
-        SearchBuilder { query: self, dict: cache, tx }
+        SearchBuilder { query: self, dict: cache, tx, max_duration }
     }
 
     /// Add reference to word list and its metadata.
@@ -101,12 +103,13 @@ where
     ///
     /// See also fn [enrich].
     pub fn add_cache(&'c self, cache: &'b Cache) -> SearchBuilder<'a, 'b> {
-        SearchBuilder { query: self, dict: cache, tx: None }
+        SearchBuilder { query: self, dict: cache, tx: None, max_duration: None }
     }
 }
 
 /// Envelope for sending each new unique anagram as it is found.
-/// Follows same semantics of how [Iterator] uses [Option].
+/// Follows similar semantics of how [Iterator] uses [Option] but adds
+/// an indication of progress.
 ///
 /// Closing the [Sender] should be sufficient signal for listener to
 /// end, but `for msg in rx {}` proved otherwise.
@@ -123,6 +126,9 @@ pub struct SearchBuilder<'a, 'b> {
 
     /// Transmits stream of unique anagram phrases as each is found
     tx: Option<Sender<UniqueAnagram>>,
+
+    /// Expire after time elapses (time-to-live, TTL)
+    max_duration: Option<Duration>,
 }
 
 impl<'a, 'b, 'c> SearchBuilder<'a, 'b>
@@ -137,8 +143,9 @@ where
     // i.e., 'c. Otherwise, it's simple enough instantiating struct inline.
     pub fn new(
         query: &'b Search<'a, 'b>, cache: &'b Cache, tx: Option<Sender<UniqueAnagram>>,
+        max_duration: Option<Duration>,
     ) -> SearchBuilder<'a, 'b> {
-        SearchBuilder { query, dict: cache, tx }
+        SearchBuilder { query, dict: cache, tx, max_duration }
     }
 
     /// Exercise combinations and permutations of dictionary words to
@@ -147,10 +154,15 @@ where
     ///
     /// The search space can be pruned in advance when word list gets
     /// loaded on-demand per query ensuring fewer iterations here.
-    // TODO divvy into non-overlapping chunks and dispach concurrent workers
+    // TODO divvy into non-overlapping chunks and dispach concurrent workers.
+    // TODO full results arrive within a few seconds (100% in casual testing),
+    // but some runs take 10, 20, 40+ minutes to complete.
+    // Limiting elapsed time is pragmatic but a hack nonetheless.
+    // After fixing that defect, keep the feature for HTTP service workers.
     pub fn brute_force(&'c self) -> Vec<Vec<Vec<String>>> {
         let task = Task::new(self);
         let mut results = Candidate::new();
+        let time = Instant::now();
         let limit = self.dict.descending_keys.len();
         let mut deque = VecDeque::<Task<'a, 'b>>::with_capacity(limit * 2);
         // TODO allocates new accumulaters, each with one word spanning entire dict
@@ -196,6 +208,11 @@ where
                     deque.push_front(new_task);
                 }
             }
+            if let Some(x) = self.max_duration {
+                if time.elapsed() > x {
+                    break;
+                }
+            }
         }
         if let Some(tx) = &self.tx {
             let _ = tx.send(None);
@@ -227,6 +244,7 @@ impl<'a> Candidate {
     }
 
     /// Extract and return resulting anagrams, which consumes `self`
+    #[inline]
     fn phrases(&mut self) -> Vec<Vec<Vec<String>>> {
         std::mem::take(&mut self.0).into_values().collect()
     }
@@ -244,6 +262,7 @@ impl<'a> Candidate {
     ///
     /// Return value indicates whether phrase was unique or not, and if so,
     /// supplies [UniqueAnagram] value suitable for channel [Sender].
+    #[inline]
     fn push_if_unique(&mut self, phrase: &mut [&'a [String]]) -> UniqueAnagram {
         // Arrange (first) words within phrase in alphabetical order:
         phrase.sort_unstable_by(|a, b| a[0].cmp(&b[0]));

@@ -565,9 +565,9 @@ fn anagrams(
 
     let (tx, rx) = channel();
     let builder = if streaming {
-        search.enrich(&cache, Some(tx))
+        search.enrich(&cache, Some(tx), None)
     } else {
-        search.enrich(&cache, None)
+        search.enrich(&cache, None, None)
     };
 
     let mut anagrams = builder.brute_force();
