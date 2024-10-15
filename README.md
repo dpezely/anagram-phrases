@@ -39,7 +39,7 @@ This is a command-line utility for handling a single query per run.
 Compile using [Rust](http://rust-lang.org/) 1.80 or newer, which is
 available for BSD Unix, Linux, macOS, Windows and other operating systems:
 
-    cargo build --release --bin anagram-phrases
+    cargo build --release --bin anagram-phrases --features=cli
 
 Install its one executable somewhere convenient:
 
