@@ -16,6 +16,7 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 
 use anagram_phrases::config::Config;
+use anagram_phrases::csv;
 use anagram_phrases::error::Result;
 use anagram_phrases::json;
 use anagram_phrases::search::Search;
@@ -192,6 +193,13 @@ fn main() -> Result<()> {
             let max = session.config.max_phrase_words;
             json::write(&filepath, max, &singles, &results).map_err(|e| {
                 eprintln!("Unable to create JSON file {filepath:#?}, {e:?}");
+                e
+            })?;
+        }
+        if let Some(filepath) = session.csv {
+            let max = session.config.max_phrase_words;
+            csv::write(&filepath, max, &singles, &results).map_err(|e| {
+                eprintln!("Unable to create CSV file {filepath:#?}, {e:?}");
                 e
             })?;
         }

@@ -54,14 +54,14 @@ dot-bashrc:
 .PHONY: build
 build:
 	PATH=${PATH} \
-	  cargo build --bin anagram-phrases
+	  cargo build --bin anagram-phrases --features=cli
 
 # Using the help flag as a test in itself confirms the Clap config is valid
 .PHONY: test
 test:
 	@echo "Running with --help to confirm clap config:"
 	[ $(shell PATH=${PATH} \
-	  cargo run --bin anagram-phrases -- --help | wc -l) = 37 ]
+	  cargo run --bin anagram-phrases --features=cli -- --help | wc -l) = 42 ]
 	PATH=${PATH} \
 	  cargo test
 
@@ -83,7 +83,7 @@ format:
 release:
 	[ -f Cargo.lock ] && PATH=${PATH} cargo clean --release -p anagram-phrases || true
 	PATH=${PATH} \
-	  cargo build --release --bin anagram-phrases
+	  cargo build --release --bin anagram-phrases --features=cli
 
 # Build release for production using Docker with a Linux base image.
 # (Avoid cross-compiling on macOS with Linux target, which is

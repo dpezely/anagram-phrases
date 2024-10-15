@@ -25,29 +25,33 @@ confirming that no further phrases can be found.
 There probably are algorithmic optimizations that can be applied which would
 greatly reduce duration of that final stage.
 
-## v0.6.0 - Streaming Results & Writing JSON
+## v0.6.0 - Streaming Results & Writing CSV, JSON
 
 This release introduces concurrency but only for producing and consuming
 streaming results as each new anagram (or transposition) is found.  These
 are baby steps towards functionality accommodating HTTP service as a client
 of this library; e.g., for its future release to utilize WebSockets in a
-meaningful way.  (More meaningful concurrency across all processors is
+meaningful way.  (Fine-grained concurrency across all processors is
 planned.)
 
 New features:
 
 - API of `SearchBuilder` accommodates an MPSC channel for streaming results
   + Each phrase gets sent as `Option::Some` via channel as it is found
-  + Receiving `Option::None` indicates the listener may exit
+  + Receiving `Option::None` indicates the listener should exit
   + Channel messages may get wrapped within an different Enum before v1.0
-    to accommodate services such as WebSocket
+    to accommodate services such as WebSocket, metrics, etc.
 - CLI adds `--json` (`-j`) option for writing sorted results in JSON format
   + Isolates single word results ("transpositions" actually) from phrases
     (proper "anagrams")
   + Each is sorted alphabetically
   + Anagrams are further sorted by number of words in phrase
+- CLI adds `--csv` (`-c`) option for writing CSV, similarly to JSON
+  + Both JSON and CSV export are isolated via compile-time features,
+    so that other library clients may omit dependencies
 - CLI adds `--quiet` (`-q`) flag to omit streaming results as each is found
   + Verbose and quiet modes compete, and the last flag specified wins
+- CLI adds `--duration` (`-D`) to limit duration of processing the query
 
 Fixes:
 

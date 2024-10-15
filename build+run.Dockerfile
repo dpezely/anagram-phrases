@@ -26,7 +26,7 @@ RUN mkdir src/bin/
 RUN echo 'fn main() {}' > src/bin/anagrams.rs
 
 # Build dependencies
-RUN cargo build --release --bin anagram-phrases
+RUN cargo build --release --bin anagram-phrases --features=cli
 
 # Remove fake source code from dummy project
 RUN rm src/*.rs
@@ -40,7 +40,7 @@ COPY ./src/bin/ ./src/bin/
 RUN touch src/*.rs
 
 # Build again using actual source files intended for production:
-RUN cargo build --release --bin anagram-phrases
+RUN cargo build --release --bin anagram-phrases --features=cli
 
 # Prune for smaller final Docker image:
 RUN strip /anagram-phrases/target/release/anagram-phrases

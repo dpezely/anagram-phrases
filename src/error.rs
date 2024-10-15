@@ -35,6 +35,11 @@ pub enum AnagramError {
     #[error("The requested language is not implemented")]
     LangNotImplemented,
 
+    #[cfg(feature = "cli")]
     #[error("Unable to generate JSON payload")]
     JsonPayload(#[from] serde_json::Error),
+
+    #[cfg(feature = "cli")]
+    #[error("Unable to generate CSV payload")]
+    CsvPayload(#[from] csv::Error),
 }

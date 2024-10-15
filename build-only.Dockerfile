@@ -20,7 +20,7 @@ RUN mkdir src/bin/
 RUN echo 'fn main() {}' > src/bin/anagrams.rs
 
 # Build dependencies
-RUN cargo build --lib --release
+RUN cargo build --lib --release --features=cli
 
 # Remove fake source code from dummy project
 RUN rm src/*.rs
@@ -33,7 +33,7 @@ COPY ./src/bin/ ./src/bin/
 RUN touch src/*.rs
 
 # Build again using actual source files intended for production:
-RUN cargo build --release --bin anagram-phrases
+RUN cargo build --release --bin anagram-phrases --features=cli
 
 # Final steps after building this container to deploy the new executable:
 #

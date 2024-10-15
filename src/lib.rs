@@ -6,7 +6,10 @@ extern crate num_traits;
 extern crate char_seq;
 
 pub mod config;
+#[cfg(feature = "cli")]
+pub mod csv;
 pub mod error;
+#[cfg(feature = "cli")]
 pub mod json;
 pub mod languages;
 pub mod primes;
