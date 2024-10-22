@@ -90,22 +90,21 @@ pub fn load_and_select(
     let mut bytes: Vec<u8> = vec![];
     for filepath in config.dict_file_paths.iter() {
         let mut fd = BufReader::new(File::open(filepath)?);
-        let mut word = String::new();
         let mut previous = String::new();
         let mut i = 0;
         loop {
             i += 1;
             bytes.clear();
-            word.clear();
             match fd.read_until(NEWLINE, &mut bytes) {
                 Ok(0) => break, // End of file (EOF)
                 Ok(_n) => {
-                    if config.encoding == Encoding::Iso_8859_1 {
-                        word = bytes.iter().map(|&x| char::from(x)).collect();
+                    let mut word = if config.encoding == Encoding::Iso_8859_1 {
+                        bytes.iter().map(|&x| char::from(x)).collect()
                     } else {
-                        word = String::from_utf8_lossy(&bytes).to_string();
+                        String::from_utf8_lossy(&bytes).to_string()
                     }
-                    word = word.trim().to_string();
+                    .trim()
+                    .to_string();
                     if word.is_empty() {
                         continue;
                     }
